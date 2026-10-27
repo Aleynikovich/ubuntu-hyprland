@@ -11,9 +11,11 @@
 | | On AC | On battery |
 |---|---|---|
 | **Hybrid** (iGPU draws the desktop) | iGPU floor 900 MHz (max ~1650). NVIDIA is not touched, so it can sleep | floor released; NVIDIA still not touched |
+| **Hybrid, monitor mode** (`render-nvidia`: the 4070 draws, the iGPU scans out the panel) | NVIDIA floors as in dGPU-only plus the iGPU floor, `nvidia-persistenced` running | floors released |
 | **dGPU-only** (NVIDIA draws the desktop) | graphics floor 1200 MHz and memory floor 6001 MHz (maxes unchanged), `nvidia-persistenced` running | floors released |
 | **Both modes** | power profile `performance`, CPU governor `performance` | `balanced`, governor `powersave` |
 
+- Monitor mode needs the NVIDIA floors even in Hybrid: until 2026-10-27 gpu-warm only looked at the BIOS mode, so the 4070 that draws the desktop idled at P8 (810 MHz memory) and the first workspace switch after a quiet spell stuttered again. gpu-warm now follows the session wrapper's rule (some user has `~/.config/hyprland-ii/render-nvidia` and no `gpu-passthrough`), and `vm-gpu mode vm|normal` re-runs it through the root helper.
 - The memory floor matters: with only the graphics floor, memory idled at 810 of 8001 MHz and the first blur/workspace frame still stuttered. The price in dGPU-only mode is about 10 W idle draw (P4) instead of about 4 W.
 - The governor is set to `performance` because Isaac Sim warns about `powersave`, even though `intel_pstate` with EPP `performance` is equivalent.
 - The profile switch retries for a few seconds: power-profiles-daemon sometimes answers "busy" when two AC events arrive together, which used to leave the laptop on `performance` after unplugging.
