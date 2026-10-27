@@ -10,7 +10,8 @@ url="${1:-}"
 case "$url" in
   https://linear.app/*)                              app=linear ;;
   https://mail.google.com/*)                         app=gmail ;;
-  https://notion.so/*|https://www.notion.so/*)       app=notion url="https://www.notion.so/${url#https://*notion.so/}" ;;
+  https://app.notion.com/*)                          app=notion ;;
+  https://notion.so/*|https://www.notion.so/*)       app=notion url="https://app.notion.com/${url#https://*notion.so/}" ;;   # same page ids
 esac
 # Fall back to a Vivaldi tab when it isn't a desk app link, or Hyprland can't be reached (no session env)
 if [ -n "${app:-}" ] && [ $# -eq 1 ] && hyprctl version >/dev/null 2>&1; then

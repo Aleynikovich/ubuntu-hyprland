@@ -99,10 +99,11 @@ PY
 python3 - "$QS/services/AppSearch.qml" <<'PY'
 import sys, os
 p = sys.argv[1]; s = open(p).read()
+if "desk-app.sh" in s and os.path.exists(p + ".orig"): s = open(p + ".orig").read()   # re-patch when the list changes
 if "desk-app.sh" not in s:
     if not os.path.exists(p + ".orig"): open(p + ".orig", "w").write(s)
     apps = [("app\\.slack\\.com", "slack"), ("web\\.whatsapp\\.com", "whatsapp"), ("mail\\.google\\.com", "gmail"),
-            ("linear\\.app", "linear"), ("www\\.notion\\.so", "notion")]
+            ("linear\\.app", "linear"), ("(app\\.notion\\.com|www\\.notion\\.so)", "notion")]
     block = "        // Desk apps (scripts/desk-app.sh): Vivaldi app windows -> their desk-<app> icon\n" + "".join(
         '        { "regex": /^vivaldi-%s__.*$/, "replace": "desk-%s" },\n' % a for a in apps)
     anchor = "    property var regexSubstitutions: [\n"

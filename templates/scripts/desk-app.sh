@@ -15,7 +15,7 @@ case "$app" in
   whatsapp) url=https://web.whatsapp.com     home=1 ;;
   gmail)    url=https://mail.google.com/mail/u/0/ home=1 ;;
   linear)   url=https://linear.app           home=3 ;;
-  notion)   url=https://www.notion.so        home=2 ;;
+  notion)   url=https://app.notion.com       home=2 ;;   # www.notion.so before Notion moved; its links leave the window
   *) echo "unknown app: $app" >&2; exit 2 ;;
 esac
 host=${url#https://}; host=${host%%/*}
