@@ -89,20 +89,22 @@ To stop it, remove the `hypr-sync-workspaces` line from `~/.config/hypr/custom/e
 
 ## Desk apps (phase 55)
 
-Slack, WhatsApp, Linear and Notion each get a fixed place and a jump key, so they are always one key away on either monitor. `templates/scripts/desk-app.sh` (installed to `~/.config/hypr/custom/scripts/`) opens them as Vivaldi app windows (`vivaldi --app=URL`, same profile, so already logged in). In tabs they are all `vivaldi-stable` to Hyprland; an app window gets its own class (`vivaldi-<host>__<path>-Default`).
+Slack, WhatsApp, Gmail, Linear and Notion each get a fixed place and a jump key, so they are always one key away on either monitor. `templates/scripts/desk-app.sh` (installed to `~/.config/hypr/custom/scripts/`) opens them as Vivaldi app windows (`vivaldi --app=URL`, same profile, so already logged in). In tabs they are all `vivaldi-stable` to Hyprland; an app window gets its own class (`vivaldi-<host>__<path>-Default`).
 
 | Key | App | Home |
 |---|---|---|
 | SUPER+ALT+C | Slack | 1 |
 | SUPER+ALT+W | WhatsApp | 1 |
-| SUPER+ALT+L | Linear | 2 |
+| SUPER+ALT+E | Gmail | 1 |
+| SUPER+ALT+L | Linear | 3 |
 | SUPER+ALT+N | Notion | 2 |
 
 - **Jump (SUPER+ALT+key):** focuses the app's window on a visible workspace (laptop or external), else the one on its home desk, else the most recent one. Not running: opens it on its home workspace. Pressed again on it: the next window of that app, or back where you were if there is only one (a peek-and-return toggle).
 - **New here (SUPER+SHIFT+ALT+key):** another window of the app on the focused workspace, e.g. a Slack channel next to VS Code. Nothing pins the app's windows, so it stays there.
 - **Monitors:** "home desk" counts in every monitor's group, so a Slack moved from 1 to 11 (the external's half of desk 1) is still at home; focusing it switches both monitors to desk 1 (linked workspaces). Unplugged, it folds back to 1.
+- **Links:** `templates/scripts/link-router.sh` is the default http(s) handler (`link-router.desktop`, via `xdg-mime`). A Linear, Notion or Gmail link opened from outside Vivaldi (VS Code, a terminal, Electron apps, the portal) opens as a new app window next to that app's most recent window (else on its home desk) and takes focus; every other link goes to Vivaldi as before. A link clicked inside a Vivaldi window (Linear in the Slack app) doesn't pass through it: Vivaldi opens those as tabs itself. Slack links aren't routed (`<team>.slack.com` URLs need the team id). Undo: `xdg-mime default vivaldi-stable.desktop x-scheme-handler/http x-scheme-handler/https`; Vivaldi's "make default browser" prompt does the same.
 - **Adding an app:** one line in the script's `case` (URL and home workspace) and one entry (key, app, name) in the `ipairs({...})` table in `custom/keybinds.lua`. The binds show in the cheatsheet (SUPER+/) under "Desk".
-- **Tested** 2026-10-23 with the Odyssey connected: open at home, toggle back, new window here, cycling two windows, and jumping to a window on the external's visible workspace and on its home desk (12).
+- **Tested** 2026-10-23 with the Odyssey connected: open at home, toggle back, new window here, cycling two windows, and jumping to a window on the external's visible workspace and on its home desk (12). Link router tested 2026-10-27 with `xdg-open`: Notion and Linear (with a `?a&b` query) open at home, a second Linear link follows the Linear window to desk 4, other URLs go to Vivaldi.
 
 ## Known issues
 

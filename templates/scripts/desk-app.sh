@@ -1,26 +1,35 @@
 #!/usr/bin/env bash
-# Desk apps: web tools (Slack, Linear, ...) as Vivaldi app windows, each with a home workspace and a jump key.
+# Desk apps: web tools (Slack, Linear, Gmail, ...) as Vivaldi app windows, each with a home workspace and a jump key.
 # Why: as tabs they are all "vivaldi-stable" to Hyprland. `vivaldi --app=URL` windows get their own class (vivaldi-<host>__<path>-<profile>).
 #   No window rule pins them, so a second Slack opened next to the code stays there. All app windows share Vivaldi's PID, so exec rules
 #   can't place them: a new window is moved once it maps.
 # Usage: desk-app.sh <app>       jump: its window on a visible workspace (any monitor), else the one on its home desk, else the most recent.
 #                                On it already: the next one, or back to the previous window if there is only one. None: open it at home.
 #        desk-app.sh <app> new   open another window of it on the focused workspace.
+#        desk-app.sh <app> open URL   open URL (a page of the app) as a new app window next to its most recent window, else at home.
+#                                Used by link-router.sh, so a Linear link opened from anywhere lands on Linear's desk.
 # Home desk n counts in every monitor's group (hypr-sync-workspaces): with the external, a Slack dragged from 1 to 11 is still at home.
 app="${1:?app}" mode="${2:-jump}"
 case "$app" in
   slack)    url=https://app.slack.com/client home=1 ;;
   whatsapp) url=https://web.whatsapp.com     home=1 ;;
-  linear)   url=https://linear.app           home=2 ;;
+  gmail)    url=https://mail.google.com/mail/u/0/ home=1 ;;
+  linear)   url=https://linear.app           home=3 ;;
   notion)   url=https://www.notion.so        home=2 ;;
   *) echo "unknown app: $app" >&2; exit 2 ;;
 esac
 host=${url#https://}; host=${host%%/*}
 prefix="vivaldi-$host"__   # the class without path and profile: Slack's URL path changes once it loads, the class doesn't
+if [ "$mode" = open ]; then
+  url="${3:?url}"
+  # exec_cmd runs it through a shell inside single quotes: encode what could break out of them (valid URLs don't need these raw)
+  url=${url//\\/%5C}; url=${url//\'/%27}; url=${url//\"/%22}; url=${url// /%20}
+  [[ "$url" == "https://$host/"* ]] || { echo "not a $app URL: $url" >&2; exit 2; }
+fi
 
-# One run per app at a time: two quick presses while Vivaldi starts would open two windows.
+# One run per app at a time: two quick presses while Vivaldi starts would open two windows. Links wait their turn instead of being dropped.
 exec 9>"${XDG_RUNTIME_DIR:-/tmp}/desk-app.$app.lock"
-flock -n 9 || exit 0
+if [ "$mode" = open ]; then flock -w 30 9 || exit 1; else flock -n 9 || exit 0; fi
 
 wins() { hyprctl clients -j | jq -r --arg p "$prefix" '[.[] | select(.class | startswith($p)) | .address] | sort | join(" ")'; }
 focus() { hyprctl dispatch "hl.dsp.focus({ window = \"address:$1\" })" >/dev/null; }
@@ -29,7 +38,7 @@ focus() { hyprctl dispatch "hl.dsp.focus({ window = \"address:$1\" })" >/dev/nul
 open_on() {
   local before new i
   before=$(wins)
-  hyprctl dispatch "hl.dsp.exec_cmd(\"vivaldi --app=$url\")" >/dev/null
+  hyprctl dispatch "hl.dsp.exec_cmd(\"vivaldi '--app=$url'\")" >/dev/null
   for ((i = 0; i < 100; i++)); do
     sleep 0.2
     new=$(comm -13 <(tr ' ' '\n' <<<"$before") <(wins | tr ' ' '\n') | head -1)
@@ -42,6 +51,11 @@ open_on() {
 
 if [ "$mode" = new ]; then
   open_on "$(hyprctl monitors -j | jq '.[] | select(.focused) | .activeWorkspace.id')"
+  exit
+fi
+if [ "$mode" = open ]; then
+  open_on "$(hyprctl clients -j | jq --arg p "$prefix" --argjson home "$home" '
+    [.[] | select((.class | startswith($p)) and .workspace.id > 0)] | sort_by(.focusHistoryID) | (.[0].workspace.id // $home)')"
   exit
 fi
 
