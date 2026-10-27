@@ -50,3 +50,6 @@ hl.monitor({
 for i = 1, 10 do
     hl.workspace_rule({ workspace = tostring(i), monitor = "eDP-1", default = (i == 1) })
 end
+
+-- The pointer stays where it is: no jump to the focused window's centre on a workspace switch, a jump key or a new window
+hl.config({ cursor = { no_warps = true } })
