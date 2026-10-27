@@ -134,11 +134,14 @@ if "superPressedAt" not in s:
 '''
     new = '''        name: "searchToggleRelease"
         description: "Toggles search on release"
+        // When SUPER went down. This bind (SUPER + SUPER_L) only reports the release, so the press comes from the workspaceNumber
+        // shortcut (GlobalStates.superDown), which fires on key down.
         property real superPressedAt: 0
+        property bool superDown: GlobalStates.superDown
+        onSuperDownChanged: if (superDown) superPressedAt = Date.now()
 
         onPressed: {
             GlobalStates.superReleaseMightTrigger = true;
-            superPressedAt = Date.now();
         }
 
         onReleased: {
@@ -148,7 +151,7 @@ if "superPressedAt" not in s:
             }
             // Held long enough to show the workspace numbers: that was a look, not a tap
             const hold = Config.options?.bar.autoHide.showWhenPressingSuper;
-            if (hold?.enable && Date.now() - superPressedAt >= Math.max(hold.delay, 250))
+            if (hold?.enable && superPressedAt > 0 && Date.now() - superPressedAt >= Math.max(hold.delay, 250))
                 return;
 '''
     assert old in s
