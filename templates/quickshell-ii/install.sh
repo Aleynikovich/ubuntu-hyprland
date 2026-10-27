@@ -111,10 +111,12 @@ if "desk-app.sh" not in s:
     open(p, "w").write(s); print("AppSearch.qml patched")
 PY
 # SUPER tap vs hold: releasing SUPER opened the overview even after holding it to read the workspace numbers. Only a tap shorter than
-# the numbers' delay (bar.autoHide.showWhenPressingSuper.delay) opens it now. The original is saved once as *.orig.
+# the numbers' delay (bar.autoHide.showWhenPressingSuper.delay, at least 250 ms as in bar/Workspaces.qml) opens it now. Patched from
+# the *.orig (saved once), so a changed patch replaces the old one.
 python3 - "$QS/modules/ii/overview/Overview.qml" <<'PY'
 import sys, os
 p = sys.argv[1]; s = open(p).read()
+if "superPressedAt" in s and os.path.exists(p + ".orig"): s = open(p + ".orig").read()
 if "superPressedAt" not in s:
     if not os.path.exists(p + ".orig"): open(p + ".orig", "w").write(s)
     old = '''        name: "searchToggleRelease"
@@ -146,7 +148,7 @@ if "superPressedAt" not in s:
             }
             // Held long enough to show the workspace numbers: that was a look, not a tap
             const hold = Config.options?.bar.autoHide.showWhenPressingSuper;
-            if (hold?.enable && Date.now() - superPressedAt >= hold.delay)
+            if (hold?.enable && Date.now() - superPressedAt >= Math.max(hold.delay, 250))
                 return;
 '''
     assert old in s

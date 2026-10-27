@@ -365,7 +365,8 @@ ButtonMouseArea {
     /////////////////// Super key press handling ///////////////////
     Timer {
         id: superPressAndHeldTimer
-        interval: (Config?.options.bar.autoHide.showWhenPressingSuper.delay ?? 100)
+        // At least 250 ms: a slower tap still opens the overview (Overview.qml skips it once the numbers have shown)
+        interval: Math.max(Config?.options.bar.autoHide.showWhenPressingSuper.delay ?? 100, 250)
         repeat: false
         onTriggered: {
             root.superPressAndHeld = true;
