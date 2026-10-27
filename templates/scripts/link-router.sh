@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Link router: the default http(s) handler. Desk app links (Linear, Notion, Gmail) open as that app's window on its desk (desk-app.sh open),
+# Link router: the default http(s) handler. Desk app links (Linear, Notion, Gmail, Notion Calendar) open as that app's window on its desk (desk-app.sh open),
 #   everything else goes to Vivaldi as before.
 # Why: the desk apps are all Vivaldi, so xdg-open sent their links to whichever Vivaldi window was last active, as a tab.
 # Covers links opened outside Vivaldi (xdg-open, the portal: VS Code, terminals, Electron apps). A link clicked inside a Vivaldi window
@@ -10,6 +10,7 @@ url="${1:-}"
 case "$url" in
   https://linear.app/*)                              app=linear ;;
   https://mail.google.com/*)                         app=gmail ;;
+  https://calendar.notion.so/*)                      app=calendar ;;
   https://app.notion.com/*)                          app=notion ;;
   https://notion.so/*|https://www.notion.so/*)       app=notion url="https://app.notion.com/${url#https://*notion.so/}" ;;   # same page ids
 esac

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Desk apps: Slack, WhatsApp, Gmail, Linear, Notion as Vivaldi app windows with a home workspace and a jump key each.
+# Desk apps: Slack, WhatsApp, Gmail, Notion Calendar, Linear, Notion as Vivaldi app windows with a home workspace and a jump key each.
 # Why: as Vivaldi tabs they can't be told apart, so they can't have a fixed place. templates/scripts/desk-app.sh opens each one as an app
 #   window (its own class) on its home workspace and jumps to it from anywhere, on either monitor. Apps and home workspaces are listed in
 #   the script, keys in the keybinds block below.
@@ -13,8 +13,9 @@ install -Dm755 "$(dirname "$0")/../templates/scripts/desk-app.sh" ~/.config/hypr
 step "Jump keys"
 BINDS="$HOME/.config/hypr/custom/keybinds.lua"
 if grep -q desk-app.sh "$BINDS" 2>/dev/null; then
-  # Installs from before Gmail: add its entry to the table
+  # Installs from before Gmail / Notion Calendar: add their entries to the table
   grep -q '"gmail"' "$BINDS" || sed -i 's/{ "N", "notion", "Notion" } }/{ "N", "notion", "Notion" }, { "E", "gmail", "Gmail" } }/' "$BINDS"
+  grep -q '"calendar"' "$BINDS" || sed -i 's/{ "E", "gmail", "Gmail" } }/{ "E", "gmail", "Gmail" }, { "K", "calendar", "Notion Calendar" } }/' "$BINDS"
   echo "binds already present"
 else
   cat >> "$BINDS" <<'EOF2'
@@ -22,7 +23,7 @@ else
 -- Desk apps (custom/scripts/desk-app.sh): SUPER+ALT+key jumps to the app (opens it on its home workspace if it isn't running; again on it
 -- cycles its windows, or goes back if there is only one). SUPER+SHIFT+ALT+key opens another window of it on this workspace.
 -- Ordered (pairs() isn't) so the cheatsheet (SUPER+/) lists them in this order, under "Desk".
-for _, d in ipairs({ { "C", "slack", "Slack" }, { "W", "whatsapp", "WhatsApp" }, { "L", "linear", "Linear" }, { "N", "notion", "Notion" }, { "E", "gmail", "Gmail" } }) do
+for _, d in ipairs({ { "C", "slack", "Slack" }, { "W", "whatsapp", "WhatsApp" }, { "L", "linear", "Linear" }, { "N", "notion", "Notion" }, { "E", "gmail", "Gmail" }, { "K", "calendar", "Notion Calendar" } }) do
     local key, app, name = d[1], d[2], d[3]
     hl.bind("SUPER + ALT + " .. key, hl.dsp.exec_cmd("~/.config/hypr/custom/scripts/desk-app.sh " .. app), { description = "Desk: " .. name })
     hl.bind("SUPER + SHIFT + ALT + " .. key, hl.dsp.exec_cmd("~/.config/hypr/custom/scripts/desk-app.sh " .. app .. " new"),
@@ -43,7 +44,7 @@ fi
 step "Launcher entries"
 # SUPER, type "slack": same as the jump key (desk-app.sh <app>: go to its window, or open it on its home desk). Icons are the apps'
 # favicons, taken once from Vivaldi's favicon cache (templates/desk-icons). Rollback: rm ~/.local/share/applications/desk-*.desktop
-for d in "slack:Slack:chat;messages;" "whatsapp:WhatsApp:chat;messages;" "gmail:Gmail:email;mail;inbox;" \
+for d in "slack:Slack:chat;messages;" "whatsapp:WhatsApp:chat;messages;" "gmail:Gmail:email;mail;inbox;" "calendar:Notion Calendar:calendar;agenda;meetings;schedule;" \
          "linear:Linear:issues;tickets;tasks;" "notion:Notion:docs;wiki;notes;"; do
   IFS=: read -r app name kw <<<"$d"
   install -Dm644 "$(dirname "$0")/../templates/desk-icons/desk-$app.png" ~/.local/share/icons/hicolor/32x32/apps/desk-$app.png
@@ -61,7 +62,7 @@ done
 gtk-update-icon-cache -q ~/.local/share/icons/hicolor 2>/dev/null || true
 
 step "Link router"
-# Default http(s) handler: Linear/Notion/Gmail links open in their app window on its desk, the rest in Vivaldi (templates/scripts/link-router.sh).
+# Default http(s) handler: Linear/Notion/Gmail/Calendar links open in their app window on its desk, the rest in Vivaldi (templates/scripts/link-router.sh).
 # text/html (local files) stays with Vivaldi. Rollback: xdg-mime default vivaldi-stable.desktop x-scheme-handler/http x-scheme-handler/https
 install -Dm755 "$(dirname "$0")/../templates/scripts/link-router.sh" ~/.config/hypr/custom/scripts/link-router.sh
 cat > ~/.local/share/applications/link-router.desktop <<EOF2
@@ -76,4 +77,4 @@ NoDisplay=true
 EOF2
 update-desktop-database ~/.local/share/applications 2>/dev/null || true
 xdg-mime default link-router.desktop x-scheme-handler/http x-scheme-handler/https
-ok "SUPER+ALT+C/W/E/L/N: Slack, WhatsApp, Gmail, Linear, Notion (Hyprland reloads the binds on save); Linear/Notion/Gmail links open on their desk"
+ok "SUPER+ALT+C/W/E/K/L/N: Slack, WhatsApp, Gmail, Notion Calendar, Linear, Notion (Hyprland reloads the binds on save); Linear/Notion/Gmail/Calendar links open on their desk"
