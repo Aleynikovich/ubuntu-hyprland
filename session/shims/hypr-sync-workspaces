@@ -15,15 +15,20 @@ GROUP=10
 # Prints the hyprctl --batch commands that bring the monitors in line (nothing when they already are, or with only an external monitor).
 plan() {
   jq -nr --argjson m "$(hyprctl monitors -j)" --argjson w "$(hyprctl workspaces -j)" --argjson c "$(hyprctl clients -j)" --argjson g "$GROUP" '
-    ($m | sort_by((.name | startswith("eDP") | not), .description, .name)) as $mons
+    # Virtual outputs (hyprctl output create headless: no make/model, e.g. a screen recorder'"'"'s canvas) are left alone: not
+    # linked, their workspaces and windows not moved or folded
+    ($m | map(select(.make == "" and .model == "" and (.name | startswith("eDP") | not)) | .name)) as $virt
+    | ($w | map(select(.monitor as $n | $virt | index($n))) | map(.id)) as $virtws
+    | ($m | map(select(.name as $n | $virt | index($n) | not)) | sort_by((.name | startswith("eDP") | not), .description, .name)) as $mons
     | ($mons | map(.name)) as $names
     | ($names[0] | startswith("eDP")) as $edp
     | [$mons[] | select(.focused)][0] as $f
     | select((($mons | length) > 1 or $edp) and $f != null and $f.activeWorkspace.id > 0)   # special workspaces have negative ids
     | (($f.activeWorkspace.id - 1) % $g + 1) as $n                                           # the focused monitor decides n
-    | [ ($c[] | select($edp and .workspace.id > 0 and ((.workspace.id - 1) / $g | floor) >= ($names | length))
+    | [ ($c[] | select($edp and .workspace.id > 0 and ((.workspace.id - 1) / $g | floor) >= ($names | length)
+                  and (.workspace.id as $i | $virtws | index($i) | not))
            | "dispatch hl.dsp.window.move({ workspace = \((.workspace.id - 1) % $g + 1), follow = false, window = \"address:\(.address)\" })"),
-        ($w[] | select(.id > 0) | ((.id - 1) / $g | floor) as $k
+        ($w[] | select(.id > 0 and (.monitor as $n | $virt | index($n) | not)) | ((.id - 1) / $g | floor) as $k
            | select($k < ($names | length) and .monitor != $names[$k])
            | "dispatch hl.dsp.workspace.move({ workspace = \(.id), monitor = \"\($names[$k])\" })"),
         ($mons | to_entries[] | (.key * $g + $n) as $t | select(.value.activeWorkspace.id != $t)
