@@ -37,6 +37,7 @@ ButtonMouseArea {
     // window). Positions come from the running offsets below instead of index * workspaceButtonWidth.
     readonly property bool multiIcons: Config.options?.bar.workspaces.showAppIcons ?? false
     property real workspaceIconStep: NumberUtils.roundToEven(workspaceIconSize) + 3
+    property real numberHeldShift: 5
     // Distinct icons per shown workspace, left to right as the windows are laid out
     property var workspaceApps: {
         const windows = HyprlandData.windowList;
@@ -254,15 +255,28 @@ ButtonMouseArea {
                     id: wsApp
                     readonly property var icons: root.workspaceApps[index] ?? []
 
-                    // One icon per distinct app, in a row (a column on a vertical bar). They fade out for the numbers while SUPER is held.
+                    // One icon per distinct app, in a row (a column on a vertical bar). While SUPER is held they shrink and drop to the
+                    // bottom edge (to the right on a vertical bar), like upstream's corner icon, so the number shows above them.
                     Grid {
+                        id: iconRow
+                        // Down to the button's edge; the number moves up by numberHeldShift to make room
+                        property real heldShift: root.superPressAndHeld && wsApp.icons.length > 0 ? (root.workspaceButtonWidth - root.workspaceIconSizeShrinked) / 2 : 0
                         anchors.centerIn: parent
+                        anchors.verticalCenterOffset: root.vertical ? 0 : heldShift
+                        anchors.horizontalCenterOffset: root.vertical ? heldShift : 0
                         columns: root.vertical ? 1 : Math.max(1, wsApp.icons.length)
                         spacing: root.workspaceIconStep - NumberUtils.roundToEven(root.workspaceIconSize)
-                        opacity: (root.multiIcons && !root.superPressAndHeld) ? 1 : 0
+                        scale: root.superPressAndHeld ? root.workspaceIconSizeShrinked / root.workspaceIconSize : 1
+                        opacity: root.multiIcons ? 1 : 0
                         visible: opacity > 0
                         Behavior on opacity {
                             animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                        }
+                        Behavior on heldShift {
+                            animation: Appearance.animation.elementMoveSmall.numberAnimation.createObject(this)
+                        }
+                        Behavior on scale {
+                            animation: Appearance.animation.elementMoveSmall.numberAnimation.createObject(this)
                         }
 
                         Repeater {
@@ -411,7 +425,7 @@ ButtonMouseArea {
 
         FadeLoader {
             // The dot sits under the icons; with several it would show between them
-            shown: !wsNum.showingNumbers && !(root.multiIcons && !root.superPressAndHeld && root.workspaceApps[wsNum.index]?.length > 0)
+            shown: !wsNum.showingNumbers && !(root.multiIcons && root.workspaceApps[wsNum.index]?.length > 0)
             anchors.centerIn: parent
             Circle {
                 anchors.centerIn: parent
@@ -424,6 +438,9 @@ ButtonMouseArea {
             anchors.centerIn: parent
             StyledText {
                 anchors.centerIn: parent
+                // Over a workspace with icons (dropped below it while SUPER is held), sit higher so both show
+                anchors.verticalCenterOffset: !root.vertical && root.multiIcons && root.workspaceApps[wsNum.index]?.length > 0 ? -root.numberHeldShift : 0
+                anchors.horizontalCenterOffset: root.vertical && root.multiIcons && root.workspaceApps[wsNum.index]?.length > 0 ? -root.numberHeldShift : 0
                 font {
                     pixelSize: Appearance.font.pixelSize.small - ((text.length - 1) * (text !== "10") * 2)
                     family: Config.options?.bar.workspaces.useNerdFont ? Appearance.font.family.iconNerd : defaultFont

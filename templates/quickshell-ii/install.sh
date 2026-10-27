@@ -110,6 +110,49 @@ if "desk-app.sh" not in s:
     s = s.replace(anchor, anchor + block, 1)
     open(p, "w").write(s); print("AppSearch.qml patched")
 PY
+# SUPER tap vs hold: releasing SUPER opened the overview even after holding it to read the workspace numbers. Only a tap shorter than
+# the numbers' delay (bar.autoHide.showWhenPressingSuper.delay) opens it now. The original is saved once as *.orig.
+python3 - "$QS/modules/ii/overview/Overview.qml" <<'PY'
+import sys, os
+p = sys.argv[1]; s = open(p).read()
+if "superPressedAt" not in s:
+    if not os.path.exists(p + ".orig"): open(p + ".orig", "w").write(s)
+    old = '''        name: "searchToggleRelease"
+        description: "Toggles search on release"
+
+        onPressed: {
+            GlobalStates.superReleaseMightTrigger = true;
+        }
+
+        onReleased: {
+            if (!GlobalStates.superReleaseMightTrigger) {
+                GlobalStates.superReleaseMightTrigger = true;
+                return;
+            }
+'''
+    new = '''        name: "searchToggleRelease"
+        description: "Toggles search on release"
+        property real superPressedAt: 0
+
+        onPressed: {
+            GlobalStates.superReleaseMightTrigger = true;
+            superPressedAt = Date.now();
+        }
+
+        onReleased: {
+            if (!GlobalStates.superReleaseMightTrigger) {
+                GlobalStates.superReleaseMightTrigger = true;
+                return;
+            }
+            // Held long enough to show the workspace numbers: that was a look, not a tap
+            const hold = Config.options?.bar.autoHide.showWhenPressingSuper;
+            if (hold?.enable && Date.now() - superPressedAt >= hold.delay)
+                return;
+'''
+    assert old in s
+    s = s.replace(old, new, 1)
+    open(p, "w").write(s); print("Overview.qml patched")
+PY
 # Put the buttons in the sidebar layout (two cells each) when the layout does not have them yet; config backed up once.
 CFG="$HOME/.config/illogical-impulse/config.json"
 if [ -f "$CFG" ]; then
