@@ -10,6 +10,11 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QS="${QS_DIR:-$HOME/.config/quickshell/ii}"
+# Replaced upstream files are saved once as *.orig before the copy. bar/Workspaces.qml: every app on a workspace gets its icon
+# (the workspace grows by one icon per distinct app) instead of only the biggest window's.
+for f in modules/ii/bar/Workspaces.qml; do
+  [ -e "$QS/$f" ] && [ ! -e "$QS/$f.orig" ] && cp -p "$QS/$f" "$QS/$f.orig"
+done
 cp -r "$HERE/modules" "$QS/"
 TQ="$QS/modules/ii/sidebarRight/quickToggles"
 python3 - "$TQ" <<'PY'
