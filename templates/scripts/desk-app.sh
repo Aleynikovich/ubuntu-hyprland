@@ -6,7 +6,7 @@
 # Usage: desk-app.sh <app>       jump: its window on a visible workspace (any monitor), else the one on its home desk, else the most recent.
 #                                On it already: the next one, or back to the previous window if there is only one. None: open it at home.
 #        desk-app.sh <app> new   open another window of it on the focused workspace.
-#        desk-app.sh <app> open URL   open URL (a page of the app) as a new app window next to its most recent window, else at home.
+#        desk-app.sh <app> open URL   open URL (a page of the app) in place of its most recent window, else at home.
 #                                Used by link-router.sh, so a Linear link opened from anywhere lands on Linear's desk.
 # Home desk n counts in every monitor's group (hypr-sync-workspaces): with the external, a Slack dragged from 1 to 11 is still at home.
 app="${1:?app}" mode="${2:-jump}"
@@ -54,8 +54,13 @@ if [ "$mode" = new ]; then
   exit
 fi
 if [ "$mode" = open ]; then
-  open_on "$(hyprctl clients -j | jq --arg p "$prefix" --argjson home "$home" '
-    [.[] | select((.class | startswith($p)) and .workspace.id > 0)] | sort_by(.focusHistoryID) | (.[0].workspace.id // $home)')"
+  # An app window can't be told to load another page, so the link replaces it: open the page where the most recent window is,
+  # then close that one (the apps save as you go). None open: at home.
+  read -r old ws < <(hyprctl clients -j | jq -r --arg p "$prefix" --argjson home "$home" '
+    [.[] | select((.class | startswith($p)) and .workspace.id > 0)] | sort_by(.focusHistoryID) | "\(.[0].address // "") \(.[0].workspace.id // $home)"')
+  [ -n "$ws" ] || { ws=$old; old=; }   # nothing open: jq printed " <home>", read put home in $old
+  open_on "$ws"
+  [ -n "$old" ] && hyprctl dispatch "hl.dsp.window.close({ window = \"address:$old\" })" >/dev/null
   exit
 fi
 
