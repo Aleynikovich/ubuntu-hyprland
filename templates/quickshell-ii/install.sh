@@ -88,6 +88,23 @@ if "adjustBrightness" not in s:
     s = s.replace("        function decrement() {", "        function adjust(percent: int): void {\n            root.adjustBrightness(percent);\n        }\n\n        function decrement() {", 1)
     open(p, "w").write(s); print("Brightness.qml patched")
 PY
+# Desk app icons (phase 55): Vivaldi app windows have classes like vivaldi-linear.app__<path>-Default, which the icon guesser can't
+# place, so the bar's workspaces showed a generic icon. Map each desk app's class to its desk-<app> icon (installed by phase 55).
+# Hosts as in scripts/desk-app.sh. The original is saved once as *.orig.
+python3 - "$QS/services/AppSearch.qml" <<'PY'
+import sys, os
+p = sys.argv[1]; s = open(p).read()
+if "desk-app.sh" not in s:
+    if not os.path.exists(p + ".orig"): open(p + ".orig", "w").write(s)
+    apps = [("app\\.slack\\.com", "slack"), ("web\\.whatsapp\\.com", "whatsapp"), ("mail\\.google\\.com", "gmail"),
+            ("linear\\.app", "linear"), ("www\\.notion\\.so", "notion")]
+    block = "        // Desk apps (scripts/desk-app.sh): Vivaldi app windows -> their desk-<app> icon\n" + "".join(
+        '        { "regex": /^vivaldi-%s__.*$/, "replace": "desk-%s" },\n' % a for a in apps)
+    anchor = "    property var regexSubstitutions: [\n"
+    assert anchor in s
+    s = s.replace(anchor, anchor + block, 1)
+    open(p, "w").write(s); print("AppSearch.qml patched")
+PY
 # Put the buttons in the sidebar layout (two cells each) when the layout does not have them yet; config backed up once.
 CFG="$HOME/.config/illogical-impulse/config.json"
 if [ -f "$CFG" ]; then
