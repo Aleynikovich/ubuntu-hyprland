@@ -36,6 +36,7 @@ step "Opaque app windows"
 # Their class is vivaldi-<host>__<path>-<profile>, which the vivaldi-stable rule (no blur, opaque) doesn't match.
 RULES="$HOME/.config/hypr/custom/rules.lua"
 if grep -q 'desk-app' "$RULES" 2>/dev/null; then echo "rule already present"; else
+  printf '\n' >> "$RULES"
   cat >> "$RULES" <<'EOF2'
 -- Vivaldi app windows (custom/scripts/desk-app.sh): opaque, no blur, like the browser itself
 hl.window_rule({match = { class = "^vivaldi-.*__.*$" }, no_blur = true, opacity = 1})

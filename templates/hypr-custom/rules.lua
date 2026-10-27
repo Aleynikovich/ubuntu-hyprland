@@ -6,13 +6,18 @@ if not is_file_exists(HOME .. "/.local/state/hypr-gamemode") then
     hl.window_rule({match = { class = ".*" }, no_blur = false, opacity = 0.96})
 end
 hl.window_rule({match = { class = "^floating-kitty$" }, float = true})
--- Isaac Sim (XWayland + NVIDIA): goes black when the tiler resizes it, so float it at a fixed size, opaque, no blur
+-- Isaac Sim (XWayland + NVIDIA): opaque, no blur. Tiled (float rule removed 2026-10-21; it was added because Isaac
+-- went black when the tiler resized it: if that comes back, re-add float + center + size here)
 hl.window_rule({match = { class = "^Isaac Sim.*$" }, no_blur = true, opacity = 1.0})
-hl.window_rule({match = { class = "^Isaac Sim.*$" }, float = true})
-hl.window_rule({match = { class = "^Isaac Sim.*$" }, center = true})
-hl.window_rule({match = { class = "^Isaac Sim.*$" }, size = {"(monitor_w*0.75)", "(monitor_h*0.80)"} })
 hl.window_rule({match = { class = "^looking-glass-client*$" }, no_blur = true, opacity = 1.0})
 hl.window_rule({match = { class = "^vivaldi-stable*$" }, no_blur = true, opacity = 1})
 -- Bar: lets blur apply even when the bar is quite transparent (default 0.6 cuts blur below that)
 hl.layer_rule({ match = { namespace = "bar[0-9]*" }, ignore_alpha = 0.1})
 hl.layer_rule({ match = { namespace = "barcorner.*" }, ignore_alpha = 0.1})
+
+
+-- Moved from hyprland/rules.lua (overwritten by dots updates): sidebars fade instead of sliding
+hl.layer_rule({ match = { namespace = "sideleft.*" }, animation = "fade"})
+hl.layer_rule({ match = { namespace = "sideright.*" }, animation = "fade"})
+hl.layer_rule({ match = { namespace = "quickshell:sidebarRight" }, animation = "fade"})
+hl.layer_rule({ match = { namespace = "quickshell:sidebarLeft" }, animation = "fade"})
