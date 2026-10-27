@@ -40,6 +40,26 @@ if grep -q 'desk-app' "$RULES" 2>/dev/null; then echo "rule already present"; el
 hl.window_rule({match = { class = "^vivaldi-.*__.*$" }, no_blur = true, opacity = 1})
 EOF2
 fi
+step "Launcher entries"
+# SUPER, type "slack": same as the jump key (desk-app.sh <app>: go to its window, or open it on its home desk). Icons are the apps'
+# favicons, taken once from Vivaldi's favicon cache (templates/desk-icons). Rollback: rm ~/.local/share/applications/desk-*.desktop
+for d in "slack:Slack:chat;messages;" "whatsapp:WhatsApp:chat;messages;" "gmail:Gmail:email;mail;inbox;" \
+         "linear:Linear:issues;tickets;tasks;" "notion:Notion:docs;wiki;notes;"; do
+  IFS=: read -r app name kw <<<"$d"
+  install -Dm644 "$(dirname "$0")/../templates/desk-icons/desk-$app.png" ~/.local/share/icons/hicolor/32x32/apps/desk-$app.png
+  cat > ~/.local/share/applications/desk-$app.desktop <<EOF2
+[Desktop Entry]
+Type=Application
+Name=$name
+Comment=$name desk app (Vivaldi app window on its home workspace)
+Exec=$HOME/.config/hypr/custom/scripts/desk-app.sh $app
+Icon=desk-$app
+Keywords=$kw
+Categories=Network;
+EOF2
+done
+gtk-update-icon-cache -q ~/.local/share/icons/hicolor 2>/dev/null || true
+
 step "Link router"
 # Default http(s) handler: Linear/Notion/Gmail links open in their app window on its desk, the rest in Vivaldi (templates/scripts/link-router.sh).
 # text/html (local files) stays with Vivaldi. Rollback: xdg-mime default vivaldi-stable.desktop x-scheme-handler/http x-scheme-handler/https
