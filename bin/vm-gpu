@@ -59,6 +59,17 @@ PY
   [ "$1" = gpu ] && rm -f "$GPUXML"
   echo "$VM: $1 layout"
 }
+# Windows' Virtual Display Driver (the 4070's only "monitor" for Looking Glass) next to QXL makes a second, invisible display, and the
+# pointer lands on it (no mouse in virt-viewer). So it is disabled in the lite layout and enabled again (Looking Glass host restarted)
+# for passthrough, through the guest agent once it answers, in the background. Windows keeps the state across boots.
+guest_vdd() { # guest_vdd on|off
+  local sel="Get-PnpDevice -Class Display | Where-Object { \$_.FriendlyName -eq 'Virtual Display Driver'"
+  local ps="$sel -and \$_.Status -eq 'OK' } | Disable-PnpDevice -Confirm:\$false"
+  [ "$1" = on ] && ps="\$d = $sel -and \$_.Status -ne 'OK' }; if (\$d) { \$d | Enable-PnpDevice -Confirm:\$false; Restart-Service 'Looking Glass (host)' }"
+  ( for _ in $(seq 1 90); do v qemu-agent-command "$VM" '{"execute":"guest-ping"}' >/dev/null 2>&1 && break; sleep 2; done
+    v qemu-agent-command "$VM" "{\"execute\":\"guest-exec\",\"arguments\":{\"path\":\"powershell.exe\",\"arg\":[\"-NoProfile\",\"-Command\",\"$ps\"]}}"
+  ) </dev/null >/dev/null 2>&1 &
+}
 client() {
   if [ "$(layout)" = lite ]; then
     pgrep -f "virt-viewer.*$VM" >/dev/null && { echo "virt-viewer already running"; return; }
@@ -80,6 +91,7 @@ case $cmd in
       set_layout lite
       v start "$VM" >/dev/null || die "libvirt could not start $VM (see: journalctl -u libvirtd -n 30; sudo tail /var/log/libvirt/qemu/$VM.log)"
       echo "$VM started without the 4070 (dGPU-only BIOS mode: emulated display)"
+      guest_vdd off
       [ $noclient = 1 ] || client
       exit 0
     fi
@@ -105,6 +117,7 @@ case $cmd in
     [ -n "${pid:-}" ] && systemd-inhibit --what=sleep --who=vm-gpu --why="$VM has the GPU (passthrough)" --mode=block \
       tail --pid="$pid" -f /dev/null >/dev/null 2>&1 &
     echo "$VM started; the 4070 is now on: $(driver)"
+    guest_vdd on
     [ $noclient = 1 ] || client
     ;;
   stop)
