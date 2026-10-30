@@ -41,6 +41,7 @@ Check which GPU is in use: add `glxinfo -B | grep renderer` as the command. Anyt
 
 ## Trade-offs to know
 
+- **Animations on the iGPU (measured 2026-10-30).** Workspace slides ran at ~56 FPS on the 165 Hz panel with the iGPU at its maximum clock. Blur is the whole cost (blur off: 165 FPS), and its strength does not matter: 1 or 2 passes and smaller sizes all measured 56-57. Opaque windows with only the bar blurred: ~82. In monitor mode (the 4070 draws, the iGPU scans out) blur stops mattering but every frame is copied to the iGPU, which caps it at ~82 (165/2) with blur on or off. Only dGPU-only mode gives 165 with blur, so that is the daily mode now; Hybrid is for passthrough VM days (docs/windows-vm.md). `render:new_render_scheduling` froze screenshots (grim hung), so it stays off.
 - **Panel on the iGPU.** The Intel UHD 770 is much weaker than the 4070. Whether blur, animations and window opening stay snappy over a normal working day has not been judged yet; that is the main thing to check.
 - **External monitor.** The HDMI and DisplayPort outputs belong to the NVIDIA GPU. With a monitor attached the GPU has to stay awake and every frame is copied across, so the battery gain is for unplugged use without a monitor.
 - **Sleep.** Runtime D3 is the setting phase 90 turned off for the suspend fix. If suspend or hibernate misbehaves, delete `/etc/modprobe.d/zz-nvidia-hybrid-pm.conf` and reboot.

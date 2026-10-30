@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Run the win11 VM with the RTX 4070 passed through, shown by Looking Glass. Installed to ~/.local/bin by phase 94.
-#   vm-gpu start [--no-client] [--battery-ok]   check, start the VM, block sleep while it runs, open Looking Glass
+# The layout follows the BIOS graphics mode, checked at every start:
+#   Hybrid (Intel iGPU on the PCI bus): the 4070 is passed through, Looking Glass shows it (everything below).
+#   dGPU-only: the 4070 draws the host desktop and cannot be handed over, so the same VM starts without it, on an emulated QXL
+#   display shown by virt-viewer. Same domain (UUID, TPM, NVRAM, disk), only the devices are swapped, so Windows keeps its PIN/BitLocker.
+#   vm-gpu start [--no-client] [--battery-ok]   check, start the VM, block sleep while it runs, open Looking Glass (or virt-viewer)
 #   vm-gpu stop                                 shut the VM down (forced after 60 s) and confirm the 4070 is back on nvidia
-#   vm-gpu client                               (re)open the Looking Glass client
-#   vm-gpu status                               VM state, who owns the 4070, who holds /dev/nvidia*
+#   vm-gpu client                               (re)open the Looking Glass client (or virt-viewer)
+#   vm-gpu status                               VM state, layout, who owns the 4070, who holds /dev/nvidia*
+#   vm-gpu layout gpu|lite|show                 switch the (stopped) VM's devices by hand; start does this by itself
 #   vm-gpu mode vm|normal|show                  Hyprland session: iGPU only (4070 free for the VM) or monitor mode (4070 draws, HDMI monitor works); takes effect at next login
 #   vm-gpu rom                                  dump the 4070's vBIOS to /usr/share/vgabios/rtx4070.rom (needs sudo; the card must not be in use)
 # While the VM runs the host has no CUDA / Isaac Sim / PRIME offload and no monitor on the laptop's HDMI port. See docs/windows-vm.md.
@@ -23,7 +28,43 @@ running() { [ "$(v domstate "$VM" 2>/dev/null)" = running ]; }
 driver() { basename "$(readlink -f /sys/bus/pci/devices/$GPU/driver 2>/dev/null)" 2>/dev/null || echo none; }
 holders() { fuser -v /dev/nvidia* 2>&1 | awk 'NR>1 && NF {print}' | sed 's/^ *//'; }
 on_ac() { for f in /sys/class/power_supply/*/; do [ "$(cat "$f/type" 2>/dev/null)" = Mains ] && [ "$(cat "$f/online" 2>/dev/null)" = 1 ] && return 0; done; return 1; }
+hybrid() { for d in /sys/bus/pci/devices/*; do [ "$(cat "$d/vendor")" = 0x8086 ] && case "$(cat "$d/class")" in 0x03*) return 0;; esac; done; return 1; }
+# Layout of the defined VM: "gpu" when the 4070 is a hostdev, else "lite". The passthrough definition is kept in $GPUXML while lite is defined.
+GPUXML="${XDG_STATE_HOME:-$HOME/.local/state}/hii/$VM-gpu.xml"
+layout() { v dumpxml --inactive "$VM" 2>/dev/null | grep -q "<hostdev" && echo gpu || echo lite; }
+set_layout() { # set_layout gpu|lite: redefine the stopped VM with that layout
+  [ "$(layout)" = "$1" ] && return 0
+  running && die "$VM is running: stop it first"
+  local tmp; tmp=$(mktemp) || die "mktemp failed"
+  if [ "$1" = lite ]; then
+    mkdir -p "$(dirname "$GPUXML")" && v dumpxml --inactive --security-info "$VM" > "$GPUXML" || die "could not save the passthrough definition"
+    # 4070 + its audio, the Looking Glass shmem and the empty <video> out; a QXL display in (as templates/libvirt-win11-qxl.xml).
+    python3 -I - "$GPUXML" > "$tmp" <<'PY' || { rm -f "$tmp"; die "could not build the lite definition"; }
+import sys, xml.etree.ElementTree as ET
+ET.register_namespace("qemu", "http://libvirt.org/schemas/domain/qemu/1.0")
+t = ET.parse(sys.argv[1]); dev = t.getroot().find("devices")
+for e in list(dev):
+    if e.tag == "hostdev" or (e.tag == "shmem" and e.get("name") == "looking-glass") or e.tag == "video":
+        dev.remove(e)
+v = ET.SubElement(dev, "video")
+ET.SubElement(v, "model", {"type": "qxl", "ram": "131072", "vram": "131072", "vgamem": "32768", "heads": "1", "primary": "yes"})
+t.write(sys.stdout, encoding="unicode")
+PY
+  else
+    [ -f "$GPUXML" ] || die "no saved passthrough definition ($GPUXML): virsh define templates/libvirt-win11.xml"
+    cp "$GPUXML" "$tmp"
+  fi
+  v define "$tmp" >/dev/null || { rm -f "$tmp"; die "virsh define failed"; }
+  rm -f "$tmp"
+  [ "$1" = gpu ] && rm -f "$GPUXML"
+  echo "$VM: $1 layout"
+}
 client() {
+  if [ "$(layout)" = lite ]; then
+    pgrep -f "virt-viewer.*$VM" >/dev/null && { echo "virt-viewer already running"; return; }
+    nohup virt-viewer -c "$URI" --wait --reconnect --auto-resize=always "$VM" >/dev/null 2>&1 &
+    return
+  fi
   command -v looking-glass-client >/dev/null || die "looking-glass-client not found (phase 94 builds it into ~/.local/bin)"
   pgrep -x looking-glass-c >/dev/null && { echo "Looking Glass client already running"; return; }
   nohup looking-glass-client >/dev/null 2>&1 &
@@ -35,6 +76,14 @@ case $cmd in
     noclient=0; batt=0
     for a in "$@"; do case $a in --no-client) noclient=1;; --battery-ok) batt=1;; *) die "unknown option $a";; esac; done
     running && { echo "$VM is already running"; [ $noclient = 1 ] || client; exit 0; }
+    if ! hybrid; then   # dGPU-only BIOS mode: no passthrough, the 4070 stays with the host
+      set_layout lite
+      v start "$VM" >/dev/null || die "libvirt could not start $VM (see: journalctl -u libvirtd -n 30; sudo tail /var/log/libvirt/qemu/$VM.log)"
+      echo "$VM started without the 4070 (dGPU-only BIOS mode: emulated display)"
+      [ $noclient = 1 ] || client
+      exit 0
+    fi
+    set_layout gpu
     # Hyprland must not hold the 4070 open: it is told to use the iGPU only when the flag file exists at login (phase 94 / vm-gpu mode vm).
     h=$(holders)
     if [ -n "$h" ]; then
@@ -66,6 +115,9 @@ case $cmd in
       running && { echo "no clean shutdown after 60 s: forcing off"; v destroy "$VM" >/dev/null; }
     fi
     sleep 2
+    if [ "$(layout)" = lite ] && [ "$(driver)" = nvidia ]; then   # the 4070 never left the host
+      pkill -f "virt-viewer.*$VM" 2>/dev/null; exit 0   # --reconnect would keep its window waiting
+    fi
     [ "$(driver)" = vfio-pci ] && { v nodedev-reattach pci_0000_01_00_0 >/dev/null 2>&1; v nodedev-reattach pci_0000_01_00_1 >/dev/null 2>&1; sleep 1; }
     hsudo load || die "could not load the NVIDIA modules (sudo $HELPER load)"
     sleep 3
@@ -74,7 +126,7 @@ case $cmd in
     ;;
   client) client ;;
   status)
-    echo "VM $VM: $(v domstate "$VM" 2>&1)"
+    echo "VM $VM: $(v domstate "$VM" 2>&1), $(layout) layout (BIOS: $(hybrid && echo Hybrid || echo dGPU-only))"
     echo "4070 driver: $(driver)  runtime_status: $(cat /sys/bus/pci/devices/$GPU/power/runtime_status 2>/dev/null)"
     echo "session flag: $([ -e "$FLAG" ] && echo 'VM mode (Hyprland uses the iGPU only)' || echo 'monitor (Hyprland draws on the 4070 and uses the iGPU for the panel)')"
     echo "AQ_DRM_DEVICES of the running Hyprland: $(tr '\0' '\n' < /proc/"$(pgrep -u "$USER" -x Hyprland | head -1)"/environ 2>/dev/null | sed -n 's/^AQ_DRM_DEVICES=//p')"
@@ -87,6 +139,8 @@ case $cmd in
       show) [ -e "$FLAG" ] && echo vm || echo normal ;;
       *) die "mode vm|normal|show" ;;
     esac ;;
+  layout)
+    case ${1:-show} in gpu|lite) set_layout "$1" ;; show) layout ;; *) die "layout gpu|lite|show" ;; esac ;;
   rom)
     running && die "stop the VM first"
     [ "$(driver)" = vfio-pci ] || { h=$(holders); [ -z "$h" ] || die "something holds the GPU open"; }
