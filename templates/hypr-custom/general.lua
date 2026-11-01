@@ -32,7 +32,8 @@ hl.monitor({
     output = "eDP-1",
     mode = "3200x2000@165",
     position = "0x0",
-    scale = 1.25,
+    vrr = 0,   -- VRR on the LCD panel flickers (host and Looking Glass), keep it off
+    scale = 1.33,
 })
 
 -- Any other monitor (office, projector; HDMI or USB-C): its own preferred mode, automatic scale, above the laptop like the desk at home.
@@ -40,7 +41,7 @@ hl.monitor({
 hl.monitor({
     output = "",
     mode = "preferred",
-    position = "auto-up",
+    position = "auto-left",
     scale = "auto",
 })
 
@@ -50,3 +51,20 @@ hl.monitor({
 for i = 1, 10 do
     hl.workspace_rule({ workspace = tostring(i), monitor = "eDP-1", default = (i == 1) })
 end
+
+-- XWayland apps stay unscaled by the compositor (force_zero_scaling = true in the dots, keeps them crisp), so scale them
+-- through Xft.dpi instead: 96 * 1.33 = 128. GTK and Qt X11 apps read it for fonts/UI; set again whenever XWayland (re)starts.
+hl.on("hyprland.start", function ()
+    hl.exec_cmd("sh -c 'echo \"Xft.dpi: 128\" | xrdb -merge'")
+end)
+
+-- The pointer stays where it is: no jump to the focused window's centre on a workspace switch, a jump key or a new window
+hl.config({ cursor = { no_warps = true } })
+
+-- Moved from hyprland/general.lua, which a dots update overwrites: gaps, lighter blur, fading workspace switches, EU keyboard layout
+hl.config({
+    general = { gaps_in = 5, gaps_out = 9 },
+    decoration = { blur = { size = 6 } },
+    input = { kb_layout = "eu", kb_variant = "" },
+})
+hl.animation({ leaf = "workspaces", enabled = true, speed = 7, bezier = "menu_decel", style = "fade" })

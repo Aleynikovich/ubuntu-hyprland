@@ -3,7 +3,9 @@
 # Why: the GPU idles at P8 (210 MHz); the first frame after a quiet spell (e.g. spawning foot after a while in VS Code) waits for it to clock up.
 #   On AC: persistence daemon + graphics clock floor of ${GPU_MIN_MHZ:-1200} MHz (max stays 3105) + memory clock floor of ${GPU_MEM_MIN_MHZ:-6001} MHz
 #   (max 8001; the memory clock otherwise idles at 810 and the first blur/animation frame waits for it). On battery: floors released.
-#   Hybrid BIOS mode (Intel iGPU on the PCI bus): the iGPU gets a ${IGPU_MIN_MHZ:-900} MHz floor on AC instead and NVIDIA is left alone so it can sleep (see docs/hybrid-graphics.md).
+#   Hybrid BIOS mode (Intel iGPU on the PCI bus): the iGPU gets a ${IGPU_MIN_MHZ:-900} MHz floor on AC instead and NVIDIA is left alone so it can sleep (see docs/hybrid-graphics.md),
+#   except in monitor mode (~/.config/hyprland-ii/render-nvidia, no gpu-passthrough: the 4070 draws the desktop), which gets the NVIDIA floors too.
+#   Re-applied by vm-gpu-nvidia on every session mode switch.
 #   Re-applied on AC plug/unplug (udev), boot, and resume from sleep.
 # Also sets power profile performance/balanced and CPU governor performance/powersave (Isaac warns on a powersave governor).
 # Rollback: sudo systemctl disable --now gpu-warm.service; sudo systemctl stop nvidia-persistenced; sudo rm /etc/systemd/system/gpu-warm.service /etc/udev/rules.d/99-gpu-warm.rules /usr/local/sbin/gpu-warm; sudo nvidia-smi -rgc; sudo nvidia-smi -rmc
@@ -22,8 +24,12 @@ sudo tee /usr/local/sbin/gpu-warm >/dev/null <<SCRIPT
 #   dGPU-only (MUX): NVIDIA draws the desktop -> graphics floor $MIN..max, memory floor $MEM_MIN..max, nvidia-persistenced running.
 #   Hybrid: the iGPU draws the desktop -> iGPU floor $IGPU_MIN MHz on AC. NVIDIA is left alone (nvidia-smi and persistenced would
 #   wake it / pin it awake): its clock locks are only released if it is awake, and it runtime-suspends (D3) when nothing uses it.
+#   Hybrid monitor mode (a user has ~/.config/hyprland-ii/render-nvidia and no gpu-passthrough, the session wrapper's rule): the 4070
+#   draws the desktop and is awake anyway, so it gets the dGPU-only floors and persistenced as well (it idled at P8/810 MHz memory
+#   and the first workspace switch after a quiet spell stuttered, 2026-10-27).
 ac=0; for f in /sys/class/power_supply/*/; do [ "\$(cat \$f/type 2>/dev/null)" = Mains ] && [ "\$(cat \$f/online 2>/dev/null)" = 1 ] && ac=1; done
 hybrid=0; for d in /sys/bus/pci/devices/*; do [ "\$(cat \$d/vendor)" = 0x8086 ] && case "\$(cat \$d/class)" in 0x03*) hybrid=1;; esac; done
+nvdraws=\$((1 - hybrid)); for h in /home/*/.config/hyprland-ii; do [ -e "\$h/render-nvidia" ] && [ ! -e "\$h/gpu-passthrough" ] && nvdraws=1; done
 nv() { # nvidia-smi only when the dGPU drives the desktop, or is already awake in hybrid (don't wake a suspended GPU)
   [ "\$hybrid" = 0 ] || [ "\$(cat /sys/bus/pci/devices/0000:01:00.0/power/runtime_status 2>/dev/null)" = active ] || return 0
   nvidia-smi "\$@"
@@ -31,14 +37,15 @@ nv() { # nvidia-smi only when the dGPU drives the desktop, or is already awake i
 pp() { for i in 1 2 3 4 5; do powerprofilesctl set \$1 2>/dev/null && return; sleep 1; done; }   # retry: power-profiles-daemon answers "busy" when two udev AC events race
 igpu() { for g in /sys/class/drm/card[0-9]/gt_min_freq_mhz; do [ -w "\$g" ] || continue; d=\$(dirname \$g); [ "\$(cat \$d/device/vendor)" = 0x8086 ] || continue
   if [ "\$1" = floor ]; then echo $IGPU_MIN > \$g; else cat \$d/gt_RPn_freq_mhz > \$g; fi; done; }
-if [ "\$hybrid" = 1 ]; then systemctl stop nvidia-persistenced 2>/dev/null; else systemctl start nvidia-persistenced 2>/dev/null; fi
+if [ "\$nvdraws" = 0 ]; then systemctl stop nvidia-persistenced 2>/dev/null; else systemctl start nvidia-persistenced 2>/dev/null; fi
 if [ "\$ac" = 1 ]; then
-  if [ "\$hybrid" = 0 ]; then
+  if [ "\$nvdraws" = 1 ]; then
     max=\$(nvidia-smi --query-gpu=clocks.max.graphics --format=csv,noheader,nounits | head -1)
     nvidia-smi -lgc $MIN,\$max
     mmax=\$(nvidia-smi --query-gpu=clocks.max.memory --format=csv,noheader,nounits | head -1)
     nvidia-smi -lmc $MEM_MIN,\$mmax
-  else igpu floor; fi
+  fi
+  [ "\$hybrid" = 1 ] && igpu floor
   pp performance
   for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > \$g; done
 else

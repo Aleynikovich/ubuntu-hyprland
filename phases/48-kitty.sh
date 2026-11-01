@@ -18,8 +18,11 @@ fi
 
 mkdir -p ~/.local/bin ~/.local/share/applications ~/.config
 ln -sfn "$K/bin/kitty" ~/.local/bin/kitty; ln -sfn "$K/bin/kitten" ~/.local/bin/kitten
-for f in kitty kitty-open; do   # absolute Exec/Icon: the session's PATH has no ~/.local/bin
-  sed -e "s|^Exec=kitty|Exec=$K/bin/kitty|" -e "s|^Icon=kitty|Icon=$K/share/icons/hicolor/256x256/apps/kitty.png|" \
+# Icon: a plain ">_" (templates/kitty-terminal.svg) instead of kitty's cat, which is unreadable at bar size
+install -Dm644 "$REPO/templates/kitty-terminal.svg" ~/.local/share/icons/hicolor/scalable/apps/kitty-terminal.svg
+gtk-update-icon-cache -q ~/.local/share/icons/hicolor 2>/dev/null || true
+for f in kitty kitty-open; do   # absolute Exec: the session's PATH has no ~/.local/bin
+  sed -e "s|^Exec=kitty|Exec=$K/bin/kitty|" -e "s|^Icon=kitty|Icon=kitty-terminal|" \
     "$K/share/applications/$f.desktop" > ~/.local/share/applications/$f.desktop
 done
 update-desktop-database ~/.local/share/applications 2>/dev/null || true
