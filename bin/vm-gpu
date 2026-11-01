@@ -75,7 +75,7 @@ client() {
     pgrep -f "virt-viewer.*$VM" >/dev/null && { echo "virt-viewer already running"; return; }
     # X11 at scale 1 on purpose: as a native Wayland client on a HiDPI output virt-viewer asks the guest for 2x the window (4800x3000 here),
     # which the QXL card (32 MiB vgamem) rejects, so the guest stayed at 4K 16:9 with black bars. At 1x it asks for the real pixel size (3200x2000).
-    GDK_BACKEND=x11 GDK_SCALE=1 nohup virt-viewer -c "$URI" --wait --reconnect --auto-resize=always "$VM" >/dev/null 2>&1 &
+    GDK_BACKEND=x11 GDK_SCALE=1 nohup virt-viewer -c "$URI" --wait --reconnect --auto-resize=always --spice-preferred-compression=lz4 "$VM" >/dev/null 2>&1 &
     return
   fi
   command -v looking-glass-client >/dev/null || die "looking-glass-client not found (phase 94 builds it into ~/.local/bin)"
