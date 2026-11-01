@@ -2,6 +2,7 @@ import qs.modules.common
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.modules.common.models.hyprland
 
 // The whole bar silhouette is drawn here by a fragment shader (shaders/bar_morph.frag). At rest it is the plain rounded bar.
 // While music plays (cava reads the system audio) the bar gives way a few pixels at the top and its top and bottom edges become
@@ -15,8 +16,11 @@ Item {
     property real out: 0       // overall level 0..1
     property var bands: new Array(24).fill(0)
     property real phase: 0
+    // Game mode (Quickshell toggle: Hyprland animations off) stops the visualizer: no cava, no frames, a plain flat bar.
+    HyprlandConfigOption { id: animOpt; key: "animations:enabled" }
     Process {
-        running: true
+        running: animOpt.value
+        onRunningChanged: if (!running) { root.out = 0; root.bands = new Array(24).fill(0); }
         command: ["cava", "-p", Quickshell.shellPath("modules/ii/bar/cava_morph.conf")]
         stdout: SplitParser {
             onRead: line => {
