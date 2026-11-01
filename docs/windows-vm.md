@@ -61,6 +61,7 @@ Before this the VM had 12 GiB, 4 plain vCPUs, a 64 MiB QXL, and only `relaxed/va
 - After a guest shutdown, `vm-gpu start` can fail once with `Module nvidia_drm is in use`; the holder is short-lived, wait a few seconds and run it again.
 - A passed-through GPU next to the emulated QXL display makes the pointer disappear; that is why QXL is removed. If you need the QXL fallback, `virsh define templates/libvirt-win11-qxl.xml` (no GPU).
 - Client artifacts or black frames on Wayland + Intel: `egl:doubleBuffer`, `noBufferAge`, `noSwapDamage` (in `~/.config/looking-glass/client.ini`).
+- Touchpad scroll bounced back at the end of a page: the B7 Wayland client sent one wheel click per axis event and counted the zero event at scroll end as "up". `patches/looking-glass-wayland-scroll.patch` (applied by phase 94) accumulates the scroll distance instead (2026-11-01).
 - The German Legion keyboard has no Scroll Lock or Right Ctrl, so the escape key is Insert.
 - Windows system file corruption (`mmcbase.dll`, Device Manager would not open) came from the guest being cut off during driver installs; DISM `/RestoreHealth` then `sfc /scannow` fixed it.
 - Sleep and hibernate: a vfio device breaks both. `vm-gpu start` holds a block inhibitor for the VM's lifetime; stop the VM before closing the lid on battery (the lid script hibernates).

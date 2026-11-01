@@ -29,6 +29,8 @@ lg_ver() { "$HOME/.local/bin/looking-glass-client" --version 2>&1 || true; }   #
 if ! lg_ver | grep -q "($LG_TAG)"; then
   mkdir -p "$SRC"
   [ -d "$LG_SRC" ] || git clone --depth 1 --branch "$LG_TAG" --recurse-submodules --shallow-submodules https://github.com/gnif/LookingGlass.git "$LG_SRC"
+  # touchpad scroll bounced at the end of a page: one click per axis event, and the zero event at scroll end counted as "up"
+  (cd "$LG_SRC" && git apply --check "$REPO/patches/looking-glass-wayland-scroll.patch" 2>/dev/null && git apply "$REPO/patches/looking-glass-wayland-scroll.patch") || true
   mkdir -p "$LG_SRC/client/build"
   (cd "$LG_SRC/client/build" && cmake -DCMAKE_INSTALL_PREFIX="$HOME/.local" .. && make -j"$(nproc)" && make install)
 fi
