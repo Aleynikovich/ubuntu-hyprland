@@ -10,8 +10,8 @@ hl.window_rule({match = { class = "^floating-kitty$" }, float = true})
 -- went black when the tiler resized it: if that comes back, re-add float + center + size here)
 hl.window_rule({match = { class = "^Isaac Sim.*$" }, no_blur = true, opacity = 1.0})
 hl.window_rule({match = { class = "^looking-glass-client*$" }, no_blur = true, opacity = 1.0})
--- VM display (virt-viewer, X11 or Wayland): opaque, no blur, tearing allowed. The 96% opacity + blur rule above would re-blur a 3200x2000 live picture every frame.
-hl.window_rule({match = { class = "^[Vv]irt-viewer$" }, no_blur = true, opacity = 1.0, immediate = true})
+-- VM display (virt-viewer, X11 or Wayland): opaque, no blur. (No "immediate"/tearing: it showed artifacts whenever the screen was not being recorded, i.e. when frames were not forced through the compositor.) The 96% opacity + blur rule above would re-blur a 3200x2000 live picture every frame.
+hl.window_rule({match = { class = "^[Vv]irt-viewer$" }, no_blur = true, opacity = 1.0})
 hl.window_rule({match = { class = "^vivaldi-stable*$" }, no_blur = true, opacity = 1})
 -- Bar: lets blur apply even when the bar is quite transparent (default 0.6 cuts blur below that)
 hl.layer_rule({ match = { namespace = "bar[0-9]*" }, ignore_alpha = 0.1})
