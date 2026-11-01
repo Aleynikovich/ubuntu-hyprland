@@ -7,7 +7,7 @@
 #   except in monitor mode (~/.config/hyprland-ii/render-nvidia, no gpu-passthrough: the 4070 draws the desktop), which gets the NVIDIA floors too.
 #   Re-applied by vm-gpu-nvidia on every session mode switch.
 #   Re-applied on AC plug/unplug (udev), boot, resume from sleep, and by a 1-minute timer that only acts when the battery crosses the threshold.
-# Also sets power profile performance/balanced and CPU governor performance/powersave (Isaac warns on a powersave governor).
+# Also sets power profile performance/balanced (CPU governor stays powersave: EPP=performance via the profile does the work, and a performance governor blocks profile changes).
 # Rollback: sudo systemctl disable --now gpu-warm.service; sudo systemctl stop nvidia-persistenced; sudo systemctl disable --now gpu-warm-check.timer; sudo rm /etc/systemd/system/gpu-warm-check.* /etc/systemd/system/gpu-warm.service /etc/udev/rules.d/99-gpu-warm.rules /usr/local/sbin/gpu-warm; sudo nvidia-smi -rgc; sudo nvidia-smi -rmc
 set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
@@ -44,6 +44,9 @@ pp() { for i in 1 2 3 4 5; do powerprofilesctl set \$1 2>/dev/null && return; sl
 igpu() { for g in /sys/class/drm/card[0-9]/gt_min_freq_mhz; do [ -w "\$g" ] || continue; d=\$(dirname \$g); [ "\$(cat \$d/device/vendor)" = 0x8086 ] || continue
   if [ "\$1" = floor ]; then echo $IGPU_MIN > \$g; else cat \$d/gt_RPn_freq_mhz > \$g; fi; done; }
 if [ "\$nvdraws" = 0 ]; then systemctl stop nvidia-persistenced 2>/dev/null; else systemctl start nvidia-persistenced 2>/dev/null; fi
+# intel_pstate refuses EPP writes (EBUSY) while the governor is "performance", which breaks power-profiles-daemon (the bar
+# toggle, and the firmware platform_profile it writes). Keep powersave; the performance profile sets EPP=performance instead.
+for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo powersave > \$g; done
 if [ "\$full" = 1 ]; then
   if [ "\$nvdraws" = 1 ]; then
     max=\$(nvidia-smi --query-gpu=clocks.max.graphics --format=csv,noheader,nounits | head -1)
@@ -53,12 +56,17 @@ if [ "\$full" = 1 ]; then
   fi
   [ "\$hybrid" = 1 ] && igpu floor
   pp performance
-  for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > \$g; done
+  # pp is a no-op when the daemon already says performance, so write the firmware mode (Fn+Q, power LED) directly.
+  # Legion firmware only allows performance (red) on AC; on battery it tops out at balanced (white) and overrides anything higher.
+  if [ "\$ac" = 1 ]; then echo performance > /sys/firmware/acpi/platform_profile 2>/dev/null; else echo balanced > /sys/firmware/acpi/platform_profile 2>/dev/null; fi
+  # governor stays powersave: with intel_pstate (HWP) the performance profile sets EPP=performance, which is equivalent, and a
+  # "performance" governor would make EPP writes fail, breaking the bar toggle
 else
   nv -rgc
   nv -rmc
   [ "\$hybrid" = 1 ] && igpu release
   pp balanced
+  echo balanced > /sys/firmware/acpi/platform_profile 2>/dev/null
   for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo powersave > \$g; done
 fi
 SCRIPT
