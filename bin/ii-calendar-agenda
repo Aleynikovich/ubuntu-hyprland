@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""Read-only calendar feed for the Quickshell sidebar calendar.
+
+Reads iCalendar sources (one per line) from ~/.config/ii-calendar/sources: a Google Calendar "secret address in iCal format"
+URL, any other .ics/webcal URL, or a local .ics path. Prints {"YYYY-MM-DD": [{title, start, end, allDay, location, source}]}
+for the window around today. Fetches are cached in ~/.cache/ii-calendar so the sidebar still works offline.
+Needs only python3 + python3-dateutil. Source URLs are secrets: they are never printed.
+"""
+import hashlib, json, os, re, sys, urllib.request
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+from dateutil import rrule
+
+CONF = os.path.expanduser("~/.config/ii-calendar/sources")
+CACHE = os.path.expanduser("~/.cache/ii-calendar")
+LOCAL = datetime.now().astimezone().tzinfo
+TODAY = date.today()
+WIN_FROM = datetime.combine(TODAY.replace(day=1) - timedelta(days=62), datetime.min.time())
+WIN_TO = datetime.combine(TODAY + timedelta(days=300), datetime.min.time())
+
+
+def load(src, idx):
+    os.makedirs(CACHE, exist_ok=True)
+    cache = os.path.join(CACHE, hashlib.sha1(src.encode()).hexdigest()[:12] + ".ics")
+    if re.match(r"^(https?|webcal)://", src):
+        url = re.sub(r"^webcal://", "https://", src)
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "ii-calendar"}), timeout=20) as r:
+                data = r.read().decode("utf-8", "replace")
+            if "BEGIN:VCALENDAR" not in data:
+                raise ValueError("not a calendar")
+            fd = os.open(cache, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
+                f.write(data)
+            return data
+        except Exception as e:
+            print(f"source {idx}: fetch failed ({type(e).__name__}), using cache", file=sys.stderr)
+            return open(cache).read() if os.path.exists(cache) else ""
+    p = os.path.expanduser(src)
+    return open(p, encoding="utf-8", errors="replace").read() if os.path.exists(p) else ""
+
+
+def unescape(v):
+    return re.sub(r"\\([nN,;\\])", lambda m: "\n" if m.group(1) in "nN" else m.group(1), v)
+
+
+def parse_events(text):
+    text = re.sub(r"\r?\n[ \t]", "", text)
+    evs, cur = [], None
+    for line in text.splitlines():
+        if line == "BEGIN:VEVENT":
+            cur = {}
+        elif line == "END:VEVENT" and cur is not None:
+            evs.append(cur); cur = None
+        elif cur is not None and ":" in line:
+            head, val = line.split(":", 1)
+            name, *params = head.split(";")
+            cur.setdefault(name.upper(), []).append((dict(p.split("=", 1) for p in params if "=" in p), val))
+    return evs
+
+
+def to_dt(params, val):
+    """-> (datetime, all_day). Timed values become aware local datetimes; all-day values stay naive."""
+    if params.get("VALUE") == "DATE" or re.fullmatch(r"\d{8}", val):
+        return datetime.strptime(val[:8], "%Y%m%d"), True
+    d = datetime.strptime(val.rstrip("Z"), "%Y%m%dT%H%M%S")
+    if val.endswith("Z"):
+        d = d.replace(tzinfo=timezone.utc)
+    elif "TZID" in params:
+        try:
+            d = d.replace(tzinfo=ZoneInfo(params["TZID"]))
+        except Exception:
+            d = d.replace(tzinfo=LOCAL)
+    else:
+        d = d.replace(tzinfo=LOCAL)
+    return d, False
+
+
+def first(ev, k):
+    return ev[k][0] if k in ev else None
+
+
+def duration(v):
+    m = re.fullmatch(r"([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?", v)
+    if not m:
+        return timedelta(0)
+    s, w, d, h, mi, se = m.groups()
+    td = timedelta(weeks=int(w or 0), days=int(d or 0), hours=int(h or 0), minutes=int(mi or 0), seconds=int(se or 0))
+    return -td if s == "-" else td
+
+
+def occurrences(ev):
+    ds = first(ev, "DTSTART")
+    if not ds:
+        return []
+    start, allday = to_dt(*ds)
+    de, dur = first(ev, "DTEND"), first(ev, "DURATION")
+    if de:
+        end = to_dt(*de)[0]
+        length = end - start
+    elif dur:
+        length = duration(dur[1])
+    else:
+        length = timedelta(days=1) if allday else timedelta(0)
+    rr = first(ev, "RRULE")
+    if not rr:
+        return [(start, length, allday)]
+    rule = rr[1]
+    if allday:
+        rule = re.sub(r"UNTIL=(\d{8})(T\d{6}Z?)?", r"UNTIL=\1T235959", rule)
+    try:
+        rs = rrule.rruleset()
+        rs.rrule(rrule.rrulestr(rule, dtstart=start))
+        for params, val in ev.get("EXDATE", []):
+            for v in val.split(","):
+                rs.exdate(to_dt(params, v)[0])
+        lo = WIN_FROM if allday else WIN_FROM.replace(tzinfo=LOCAL)
+        hi = WIN_TO if allday else WIN_TO.replace(tzinfo=LOCAL)
+        return [(s, length, allday) for s in rs.between(lo - length, hi, inc=True)]
+    except Exception:
+        return [(start, length, allday)]
+
+
+def main():
+    srcs = []
+    if os.path.exists(CONF):
+        srcs = [l.strip() for l in open(CONF) if l.strip() and not l.lstrip().startswith("#")]
+    out = {}
+    for i, src in enumerate(srcs, 1):
+        evs = parse_events(load(src, i))
+        # RECURRENCE-ID overrides replace the matching generated occurrence of their series
+        overrides = {(first(e, "UID")[1], to_dt(*first(e, "RECURRENCE-ID"))[0]) for e in evs if "RECURRENCE-ID" in e and "UID" in e}
+        for ev in evs:
+            if first(ev, "STATUS") and first(ev, "STATUS")[1].upper() == "CANCELLED":
+                continue
+            uid = first(ev, "UID")[1] if "UID" in ev else None
+            title = unescape(first(ev, "SUMMARY")[1]) if "SUMMARY" in ev else "(no title)"
+            loc = unescape(first(ev, "LOCATION")[1]) if "LOCATION" in ev else ""
+            for start, length, allday in occurrences(ev):
+                if "RRULE" in ev and (uid, start) in overrides:
+                    continue
+                if allday:
+                    s, e = start, start + length
+                    last = (e - timedelta(days=1)).date() if length >= timedelta(days=1) else s.date()
+                    days = [s.date() + timedelta(days=n) for n in range((last - s.date()).days + 1)]
+                else:
+                    s, e = start.astimezone(LOCAL), (start + length).astimezone(LOCAL)
+                    last = (e - timedelta(seconds=1)).date() if e > s else s.date()
+                    days = [s.date() + timedelta(days=n) for n in range((last - s.date()).days + 1)]
+                for d in days:
+                    if WIN_FROM.date() <= d <= WIN_TO.date():
+                        out.setdefault(d.isoformat(), []).append({
+                            "title": title, "location": loc, "allDay": allday, "source": i,
+                            "start": "" if allday else s.strftime("%H:%M"),
+                            "end": "" if allday else e.strftime("%H:%M"),
+                        })
+    for v in out.values():
+        v.sort(key=lambda x: (not x["allDay"], x["start"], x["title"]))
+    print(json.dumps(out, ensure_ascii=False))
+
+
+main()

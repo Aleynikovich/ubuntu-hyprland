@@ -13,10 +13,11 @@ QS="${QS_DIR:-$HOME/.config/quickshell/ii}"
 # Replaced upstream files are saved once as *.orig before the copy. bar/Workspaces.qml: every app on a workspace gets its icon
 # (the workspace grows by one icon per distinct app) instead of only the biggest window's. regionSelector/RegionSelector.qml: the
 # screenshot/region selector opens on the monitor under the cursor, not on every monitor.
-for f in modules/ii/bar/Workspaces.qml modules/ii/regionSelector/RegionSelector.qml; do
+for f in modules/ii/bar/Workspaces.qml modules/ii/regionSelector/RegionSelector.qml services/Network.qml services/BluetoothStatus.qml modules/ii/sidebarRight/bluetoothDevices/BluetoothDeviceItem.qml modules/ii/sidebarRight/calendar/CalendarWidget.qml modules/ii/sidebarRight/calendar/CalendarDayButton.qml; do
   [ -e "$QS/$f" ] && [ ! -e "$QS/$f.orig" ] && cp -p "$QS/$f" "$QS/$f.orig"
 done
 cp -r "$HERE/modules" "$QS/"
+cp -r "$HERE/services" "$QS/"   # Network.qml (non-blocking Wi-Fi scan, debounced status), BluetoothStatus.qml (settled device list)
 TQ="$QS/modules/ii/sidebarRight/quickToggles"
 python3 - "$TQ" <<'PY'
 import sys, re, os
@@ -38,17 +39,21 @@ block = '''    DelegateChoice { roleValue: "%s"; %s {
 
 '''
 s = open(chooser).read()
-if 'roleValue: "vmGpu"' not in s:
+TYPES = [("vmGpu", "AndroidVmGpuToggle"), ("gpuSession", "AndroidGpuSessionToggle"), ("metered", "AndroidMeteredToggle"), ("vpn", "AndroidVpnToggle"), ("tailscale", "AndroidTailscaleToggle")]
+todo = [(r, c) for r, c in TYPES if 'roleValue: "%s"' % r not in s]
+if todo:
     if not os.path.exists(chooser + ".orig"): open(chooser + ".orig", "w").write(s)
     anchor = '    DelegateChoice { roleValue: "gameMode"'
     assert anchor in s
-    s = s.replace(anchor, block % ("vmGpu", "AndroidVmGpuToggle") + block % ("gpuSession", "AndroidGpuSessionToggle") + anchor, 1)
+    s = s.replace(anchor, "".join(block % t for t in todo) + anchor, 1)
     open(chooser, "w").write(s); print("chooser patched")
 p = open(panel).read()
-if '"vmGpu"' not in p:
+missing = [r for r, _ in TYPES if '"%s"' % r not in p]
+if missing:
     if not os.path.exists(panel + ".orig"): open(panel + ".orig", "w").write(p)
-    assert '"antiFlashbang"]' in p
-    p = p.replace('"antiFlashbang"]', '"antiFlashbang", "vmGpu", "gpuSession"]', 1)
+    m = re.search(r'availableToggleTypes[^\[]*\[([^\]]*)\]', p)
+    assert m
+    p = p[:m.end(1)] + "".join(', "%s"' % r for r in missing) + p[m.end(1):]
     open(panel, "w").write(p); print("types patched")
 PY
 # Ubuntu's /bin/sh is dash, which has no `source`: the dots' venv shebang (`/bin/sh -c "source <venv>/bin/activate && exec
@@ -170,12 +175,21 @@ raw = open(p).read(); c = json.loads(raw)
 t = c.get("sidebar", {}).get("quickToggles", {}).get("android", {}).get("toggles")
 if t is not None:
     have = {x["type"] for x in t}
-    new = [x for x in ("vmGpu", "gpuSession") if x not in have]
+    new = [x for x in ("vmGpu", "gpuSession", "metered", "vpn", "tailscale") if x not in have]
     if new:
         if not os.path.exists(p + ".pre-vmgpu"): shutil.copy2(p, p + ".pre-vmgpu")
         t.extend({"size": 2, "type": x} for x in new)
         open(p, "w").write(json.dumps(c, indent=4, ensure_ascii=False) + ("\n" if raw.endswith("\n") else ""))
         print("added to the sidebar layout:", ", ".join(new))
 PY
+fi
+# Sidebar calendar events (read-only iCalendar feed, e.g. Google Calendar's "secret address in iCal format"): the sidebar's
+# CalendarWidget/CalendarDayButton are replaced (originals saved as *.orig above), services/CalendarEvents.qml runs this script.
+# Sources live in ~/.config/ii-calendar/sources (one URL/.ics path per line); the file is only created, never overwritten.
+install -Dm755 "$HERE/../../bin/ii-calendar-agenda" "$HOME/.local/bin/ii-calendar-agenda"
+if [ ! -e "$HOME/.config/ii-calendar/sources" ]; then
+  install -Dm600 /dev/null "$HOME/.config/ii-calendar/sources"
+  printf '%s\n' "# One iCalendar source per line: a URL (Google Calendar > Settings > your calendar > Integrate calendar >" \
+    "# 'Secret address in iCal format') or a path to an .ics file. Keep this file private; the URL grants read access." > "$HOME/.config/ii-calendar/sources"
 fi
 echo "quick toggles installed in $QS"

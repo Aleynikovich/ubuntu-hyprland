@@ -22,8 +22,8 @@ D="${XDG_STATE_HOME:-$HOME/.local/state}/hyprland-ii"; mkdir -p "$D"
 L="$D/qs-$name.log"
 [ -f "$L" ] && mv -f "$L" "$L.1"
 echo "== $(date -Is) start: qs $*" >> "$L"
-# Vulkan, not Quickshell's default GL: under Mesa GL the bar-morph shader (music wave) fails to link every frame ("qt_TexCoord0 ... no matching output") and is never drawn.
-QSG_RHI_BACKEND=vulkan NO_COLOR=1 "$Q" --log-times "$@" >> "$L" 2>&1 &   # qs logs to stdout, errors/QML warnings to stderr
+# Not QSG_RHI_BACKEND=vulkan: it fixes the music wave shader link under Mesa GL, but the GPU then hangs (VK_ERROR_DEVICE_LOST) for seconds when the region selector (Super+Shift+S) opens.
+NO_COLOR=1 "$Q" --log-times "$@" >> "$L" 2>&1 &   # qs logs to stdout, errors/QML warnings to stderr
 pid=$!
 # killall qs (Ctrl+Super+R) signals this script too: pass it on, then still record how the shell exited.
 trap 'kill -TERM "$pid" 2>/dev/null' TERM INT HUP
