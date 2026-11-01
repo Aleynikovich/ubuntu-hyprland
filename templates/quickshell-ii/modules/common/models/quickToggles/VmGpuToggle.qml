@@ -7,6 +7,7 @@ import qs.modules.common.functions
 // Windows 11 VM on the RTX 4070 (bin/vm-gpu, bin/hii-session, docs/windows-vm.md): one button for everything.
 //   VM running                     tap: shut it down (offers to go back to the HDMI monitor session if one is plugged in)
 //   VM off, iGPU-only session      tap: start it (Looking Glass opens)
+//   VM off, dGPU-only BIOS mode    tap: start it without the 4070 (vm-gpu picks the emulated display, virt-viewer opens)
 //   VM off, monitor session        tap: arms; tap again within 8 s: your windows are saved, the session restarts, the windows come back and
 //                                  Windows starts by itself. (Hyprland has to restart to let go of the 4070; there is no way around that.)
 QuickToggleModel {
@@ -15,7 +16,7 @@ QuickToggleModel {
     icon: "desktop_windows"
     toggled: false   // the VM is running
     statusText: busy ? busyText : (armed ? Translation.tr("Tap again to restart") : (toggled ? Translation.tr("Running") : Translation.tr("Off")))
-    tooltipText: Translation.tr("Windows 11 VM on the RTX 4070. From the HDMI monitor session the desktop restarts once (your windows come back).")
+    tooltipText: Translation.tr("Windows 11 VM: on the RTX 4070 in Hybrid BIOS mode (from the HDMI monitor session the desktop restarts once, your windows come back), with an emulated display in dGPU-only mode.")
 
     property bool busy: false
     property string busyText: ""
@@ -95,7 +96,8 @@ QuickToggleModel {
     // after a stop: offer the way back to the HDMI monitor session when a monitor is plugged in
     Process {
         id: offerProbe
-        command: ["bash", "-c", "cat /sys/class/drm/card*-HDMI-A-*/status 2>/dev/null | grep -q '^connected'"]
+        // only in Hybrid (iGPU present): in dGPU-only the 4070 already drives the desktop and the HDMI port, nothing to switch to
+        command: ["bash", "-c", "grep -qs 0x8086 $(grep -ls '^0x03' /sys/bus/pci/devices/*/class | sed 's/class$/vendor/') && cat /sys/class/drm/card*-HDMI-A-*/status 2>/dev/null | grep -q '^connected'"]
         onExited: (exitCode, exitStatus) => { if (exitCode === 0) offerProc.running = true; }
     }
     Process {
