@@ -68,3 +68,6 @@ hl.config({
     input = { kb_layout = "eu", kb_variant = "" },
 })
 hl.animation({ leaf = "workspaces", enabled = true, speed = 7, bezier = "menu_decel", style = "fade" })
+
+-- Dwindle: smart split (new window goes to the side of the cursor) and smart resizing. A tweak to the dots' defaults, kept here so a dots update doesn't lose it.
+hl.config({ dwindle = { smart_split = true, smart_resizing = true } })

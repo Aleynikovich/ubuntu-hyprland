@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # OPTIONAL: VS Code from Microsoft's apt repo (no snap/flatpak), plus secret-tool. Key is checked against
 # Microsoft's published fingerprint before it is trusted.
-# Rollback: sudo apt-get purge $(cat "$SRC/apt-installed-vscode.txt") && sudo rm /etc/apt/sources.list.d/vscode.sources /etc/apt/keyrings/packages.microsoft.gpg
+# Also installs templates/vscode (settings if none exist, extensions). Rollback: sudo apt-get purge $(cat "$SRC/apt-installed-vscode.txt") && sudo rm /etc/apt/sources.list.d/vscode.sources /etc/apt/keyrings/packages.microsoft.gpg
 set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
 
@@ -45,3 +45,18 @@ elif [ ! -f "$A" ]; then
 fi
 code --version | head -1
 ok "VS Code installed (updates come with apt upgrade)."
+
+step "VS Code settings and extensions (templates/vscode)"
+# Settings only if there are none yet (never overwrite yours); extensions are installed if missing.
+# The repo copy leaves out machine-specific paths, the cloud project id and the terminal auto-approve list on purpose.
+UD="$HOME/.config/Code/User"
+install -d "$UD"
+if [ -s "$UD/settings.json" ]; then echo "settings.json exists, left alone (reference copy: templates/vscode/settings.json)"; else
+  install -m644 "$(dirname "$0")/../templates/vscode/settings.json" "$UD/settings.json"
+fi
+have=$(code --list-extensions 2>/dev/null || true)
+while read -r ext; do
+  [ -n "$ext" ] || continue
+  echo "$have" | grep -qix "$ext" || code --install-extension "$ext" >/dev/null 2>&1 || warn "could not install $ext"
+done < "$(dirname "$0")/../templates/vscode/extensions.txt"
+ok "VS Code settings in place; extensions from templates/vscode/extensions.txt installed."
