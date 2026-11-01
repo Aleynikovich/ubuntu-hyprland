@@ -29,7 +29,7 @@ hl.monitor({
     scale = 1,
 })
 hl.monitor({
-    output = "eDP-1",
+    output = "desc:California Institute of Technology 0x1626 0x00006002",   -- by description: the connector is eDP-1 in dGPU-only mode but eDP-2 in Hybrid, and a name that doesn't match falls through to the auto-scale rule
     mode = "3200x2000@165",
     position = "0x0",
     vrr = 0,   -- VRR on the LCD panel flickers (host and Looking Glass), keep it off
@@ -49,7 +49,7 @@ hl.monitor({
 -- frame however the monitors come up (booting with the Odyssey plugged in once gave it workspace 1). The helper places 11-20, 21-30, ...
 -- on the other monitors itself (sorted by description), so there are no per-monitor rules to keep in sync here.
 for i = 1, 10 do
-    hl.workspace_rule({ workspace = tostring(i), monitor = "eDP-1", default = (i == 1) })
+    hl.workspace_rule({ workspace = tostring(i), monitor = "desc:California Institute of Technology 0x1626 0x00006002", default = (i == 1) })
 end
 
 -- XWayland apps stay unscaled by the compositor (force_zero_scaling = true in the dots, keeps them crisp), so scale them

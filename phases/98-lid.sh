@@ -41,7 +41,7 @@ cat > "$SCRIPT" <<'EOF2'
 #!/bin/bash
 # Lid policy: on AC, or with the shell's "Keep awake" toggle on -> only blank the panel; otherwise hibernate.
 # Usage: lid-action.sh close|open   (logind ignores the lid; see /etc/systemd/logind.conf.d/10-lid.conf)
-PANEL=eDP-1
+PANEL=$(hyprctl monitors -j | python3 -c "import json,sys;print(next((m['name'] for m in json.load(sys.stdin) if m['name'].startswith('eDP')),'eDP-1'))")   # the connector is eDP-1 in dGPU-only mode, eDP-2 in Hybrid
 STATES="$HOME/.local/state/quickshell/states.json"   # Keep awake = .idle.inhibit (quickshell Idle service)
 dpms() { hyprctl dispatch "hl.dsp.dpms({ action = \"$1\", monitor = \"$PANEL\" })" >/dev/null; }
 
@@ -69,7 +69,8 @@ cat > "$RESUME" <<'EOF2'
 #!/bin/bash
 # After resume (suspend or hibernate): the NVIDIA panel is still dark while Hyprland thinks DPMS is on, so it needs input to wake.
 # Force one real off->on modeset once the GPU has settled (more cycles made the lock screen flash), then focus the lock screen. Called from hypridle's after_sleep_cmd.
-dpms() { hyprctl dispatch "hl.dsp.dpms({ action = \"$1\", monitor = \"eDP-1\" })" >/dev/null 2>&1; }
+PANEL=$(hyprctl monitors -j | python3 -c "import json,sys;print(next((m['name'] for m in json.load(sys.stdin) if m['name'].startswith('eDP')),'eDP-1'))")   # eDP-1 in dGPU-only mode, eDP-2 in Hybrid
+dpms() { hyprctl dispatch "hl.dsp.dpms({ action = \"$1\", monitor = \"$PANEL\" })" >/dev/null 2>&1; }
 sleep 1.5
 dpms disable; sleep 0.3; dpms enable
 hyprctl dispatch 'hl.dsp.global("quickshell:lockFocus")' >/dev/null 2>&1
