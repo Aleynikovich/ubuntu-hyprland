@@ -114,6 +114,20 @@ sudo systemctl enable gpu-warm.service
 sudo systemctl restart gpu-warm.service
 sudo systemctl enable --now gpu-warm-check.timer
 
+step "Fn+Q -> bar: platform-profile watcher"
+install -Dm755 "$(dirname "$0")/../templates/scripts/platform-profile-sync.sh" ~/.config/hypr/custom/scripts/platform-profile-sync.sh
+EXECS="$HOME/.config/hypr/custom/execs.lua"
+if grep -q platform-profile-sync.sh "$EXECS" 2>/dev/null; then echo "exec already present"; else
+  cat >> "$EXECS" <<'EOF2'
+
+-- Fn+Q (firmware power mode) -> power-profiles-daemon, so the bar icon follows the key (custom/scripts/platform-profile-sync.sh)
+hl.on("hyprland.start", function ()
+    hl.exec_cmd("$HOME/.config/hypr/custom/scripts/platform-profile-sync.sh")
+end)
+EOF2
+fi
+pgrep -f 'platform-profile-sync' >/dev/null || (setsid ~/.config/hypr/custom/scripts/platform-profile-sync.sh >/dev/null 2>&1 &)
+
 step "Check"
 sleep 1
 if lspci | grep -qiE 'VGA.*Intel|Display.*Intel'; then   # Hybrid: nvidia-smi would wake the sleeping GPU

@@ -17,7 +17,8 @@ Tested on: DMI product `83FD`, kernel `7.0.0-38-generic`, NVIDIA driver 595 (ope
 | Hibernate didn't work | No resume setup, swap too small | 32 GB `/swap.img`, `resume=` on the kernel command line | 90, 91 | 🟢 Works (wake with the power button) | [Sleep and hibernate](docs/sleep-hibernate.md) |
 | 640x480 or black panel after resume | Panel EDID re-read | EDID pinned with `drm.edid_firmware` | 93 | 🟢 Fixed (secondary fix) | [Sleep and hibernate](docs/sleep-hibernate.md) |
 | Touchpad gestures broken after resume | ELAN controller stuck reporting contact 1 as palm | Rebind HID device on resume (`60-touchpad-resume`) | 90 | 🟢 Fixed | [Sleep and hibernate](docs/sleep-hibernate.md) |
-| First window or animation after idle stutters | GPU idles at its lowest clock; CPU in `power-saver` on AC | Clock floors and `performance` profile on AC only | 95 | 🟢 Fixed | [Responsiveness](docs/responsiveness.md) |
+| First window or animation after idle stutters | GPU idles at its lowest clock; CPU in `power-saver` on AC | Clock floors and `performance` profile on AC and on battery down to 10%; Fn+Q is mirrored to the bar | 95 | 🟢 Fixed | [Responsiveness](docs/responsiveness.md) |
+| Screen takes long to wake after idle | hypridle locked at 5 min and suspended at 15; the NVIDIA panel wakes slowly | No auto-lock or suspend; the screen fades and turns off (battery: 20 s / 1 min, AC: 5 / 10 min); Super+L locks and blanks | 89 | 🟢 Fixed | |
 | Laptop warm and awake after lid close | s2idle never powers down fans/backlight (~6 W) | Lid on battery hibernates; on AC it only blanks the panel | 98 | 🟢 Fixed | [Lid close](docs/lid-close.md) |
 | Windows VM slows the whole laptop | 8 GB swap, small unpinned VM | 32 GB swap; 20 GiB / 16 vCPU VM pinned to P-cores | 90 + VM XML | 🟢 Fixed | [Windows VM](docs/windows-vm.md) |
 
@@ -30,6 +31,7 @@ git clone <this repo> ~/src/ubuntu-hyprland && cd ~/src/ubuntu-hyprland
 ./setup.sh 90 91   # sleep + hibernate (91 needs Limine), then reboot
 ./setup.sh 93      # optional: pin the panel EDID
 ./setup.sh 95      # optional: GPU/CPU clocks (mode-aware: Hybrid or dGPU-only)
+./setup.sh 89      # optional: idle fade/screen-off, no auto-lock or suspend
 ./setup.sh 98      # optional: lid close
 # Hybrid graphics: set the BIOS graphics mode to Hybrid, reboot, then:
 ./setup.sh 99      # NVIDIA runtime power-down; reboot again
