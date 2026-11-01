@@ -17,7 +17,7 @@ The terminal greeting is `templates/kitty-fetch`: an ASCII sun over a horizon (f
 ## Quick start
 
 ```bash
-git clone <this repo> ~/src/ubuntu-hyprland-ii && cd ~/src/ubuntu-hyprland-ii
+git clone <this repo> ~/src/ubuntu-hyprland && cd ~/src/ubuntu-hyprland
 ./setup.sh --list        # what each phase does
 ./setup.sh 00            # read-only preflight
 ./setup.sh 10            # optional: remove all snaps + pin snapd (asks first, backs up ~/snap)

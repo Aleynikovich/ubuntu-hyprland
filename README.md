@@ -1,4 +1,4 @@
-# ubuntu-hyprland-ii
+# ubuntu-hyprland
 
 Setup scripts and fixes for a **Lenovo Legion 7 16IRX9** (i9 + RTX 4070) running **Ubuntu 24.04**. Two independent parts:
 
@@ -24,7 +24,7 @@ Tested on: DMI product `83FD`, kernel `7.0.0-38-generic`, NVIDIA driver 595 (ope
 ## Apply the fixes
 
 ```bash
-git clone <this repo> ~/src/ubuntu-hyprland-ii && cd ~/src/ubuntu-hyprland-ii
+git clone <this repo> ~/src/ubuntu-hyprland && cd ~/src/ubuntu-hyprland
 ./setup.sh 00      # read-only: does this machine match the tested hardware?
 ./setup.sh 97      # Bluetooth audio
 ./setup.sh 90 91   # sleep + hibernate (91 needs Limine), then reboot
@@ -60,6 +60,16 @@ Hyprland 0.56 with [end-4/dots-hyprland](https://github.com/end-4/dots-hyprland)
 
 Optional phases: `10` remove snaps, `45` EasyEffects/ddcutil, `70` VS Code, `80` remove Plasma/GNOME (destructive), `96` brightness keys. Everything about it is in [Hyprland desktop](docs/hyprland-desktop.md): install, isolation, Ubuntu workarounds, monitors, linked workspaces, known issues.
 
+### Music-reactive bar
+
+`bar/` replaces the shell's top bar with one fragment shader: the plain rounded bar at rest, and edges that ripple with the system audio (`cava`) while music plays. Hovering calms it so it stays clickable; nothing is drawn when nothing plays.
+
+- `./bar/install_bar.sh` patches `~/.config/quickshell/ii/modules/ii/bar/BarContent.qml` (original kept once as `BarContent.qml.orig`). Needs `cava`.
+- `./bar/bar_style.sh siri|liquid|bars|aurora|ripple|calm` switches the look live (default `ripple`, stored in `~/.config/bar-morph/style`).
+- `./bar/fix_activewindow.sh` makes the active-window widget follow the focused app with a single monitor.
+- `./bar/shaders/build.sh` recompiles the shader with Qt's `qsb` after editing the `.frag` (keep it GLSL 120 / ES safe). The compiled `.qsb` is committed.
+- Rollback: copy `BarContent.qml.orig` back over `BarContent.qml` and delete `BarMorph.qml`, `cava_morph.conf` and `bar_morph.*.frag.qsb` from that folder.
+
 ## Documentation
 
 | Page | Contents |
@@ -83,5 +93,6 @@ docs/             one page per topic
 maintenance/      update.sh, bump.sh, power-report.sh, diff-dots.sh
 templates/        kitty, fish, hypr config, libvirt VM XML
 session/          login wrapper and small shims
+bar/              music-reactive top bar (shader, installer, styles)
 patches/ lib/ packages/
 ```
