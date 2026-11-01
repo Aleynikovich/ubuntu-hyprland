@@ -1,0 +1,11 @@
+[Unit]
+Description=Cut background traffic (Syncthing, Windows VM network) while the connection is metered
+After=syncthing.service
+
+[Service]
+ExecStart=%h/.local/bin/metered-guard
+ExecStopPost=%h/.local/bin/metered-guard resume
+Restart=always
+
+[Install]
+WantedBy=default.target
