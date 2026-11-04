@@ -15,6 +15,7 @@ hl.config({
 -- fullscreen, where the compositor is bypassed). 2 passes at the default size is the heaviest blur that is fast enough. Shadows are cheap.
 -- Floating windows blur the windows directly underneath; upstream xray=true shows the wallpaper instead.
 hl.config({ decoration = { blur = { passes = 2, xray = false } } })
+hl.config({ misc = { session_lock_xray = false } })
 
 -- Optional: slowly spinning gradient on the focused border (keeps the GPU redrawing, so it costs battery). Uncomment to try.
 -- hl.animation({ leaf = "borderangle", enabled = true, speed = 60, bezier = "linear", style = "loop" })

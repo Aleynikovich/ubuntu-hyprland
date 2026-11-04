@@ -25,3 +25,6 @@ hl.layer_rule({ match = { namespace = "sideright.*" }, animation = "fade"})
 -- blur all visible sidebar pixels while leaving fully transparent margins clear.
 hl.layer_rule({ match = { namespace = "quickshell:sidebarRight" }, animation = "fade", blur = true, ignore_alpha = 0.01})
 hl.layer_rule({ match = { namespace = "quickshell:sidebarLeft" }, animation = "fade", blur = true, ignore_alpha = 0.01})
+
+-- All panels and overlays blur the actual windows underneath, including both sidebars and the AI panel.
+hl.layer_rule({ match = { namespace = ".*" }, xray = false})
