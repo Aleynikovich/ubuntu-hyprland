@@ -1,3 +1,8 @@
+-- Follow WE Manager's selected preview with end-4's shell and terminal palette.
+hl.on("hyprland.start", function ()
+    hl.exec_cmd("test -f $HOME/.config/we-manager/config.json && $HOME/.local/bin/ii-wallpaper-colors --watch")
+end)
+
 -- Linked workspaces across monitors (session-bin/hypr-sync-workspaces, see README)
 hl.on("hyprland.start", function ()
     hl.exec_cmd("hypr-sync-workspaces")

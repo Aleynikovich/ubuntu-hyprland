@@ -69,6 +69,7 @@ install -Dm755 "$REPO/templates/scripts/fps-overlay-toggle.sh" ~/.config/hypr/cu
 install -Dm755 "$REPO/templates/kitty-fetch" ~/.local/bin/kitty-fetch   # fastfetch with a short animated tesseract logo (kitty only)
 # Metered connection guard (sidebar "Metered" toggle sets NetworkManager's flag; this pauses Syncthing + the VM's network while it is on). Replaces the old syncthing-only guard.
 install -Dm755 "$REPO/bin/metered-guard" ~/.local/bin/metered-guard
+install -Dm755 "$REPO/bin/ii-wallpaper-colors" ~/.local/bin/ii-wallpaper-colors
 install -Dm644 "$REPO/templates/metered-guard.service" ~/.config/systemd/user/metered-guard.service
 if command -v systemctl >/dev/null && systemctl --user show-environment >/dev/null 2>&1; then
   systemctl --user disable --now syncthing-metered-guard.service 2>/dev/null || true
