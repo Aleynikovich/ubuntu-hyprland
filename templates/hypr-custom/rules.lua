@@ -21,5 +21,7 @@ hl.layer_rule({ match = { namespace = "barcorner.*" }, ignore_alpha = 0.1})
 -- Moved from hyprland/rules.lua (overwritten by dots updates): sidebars fade instead of sliding
 hl.layer_rule({ match = { namespace = "sideleft.*" }, animation = "fade"})
 hl.layer_rule({ match = { namespace = "sideright.*" }, animation = "fade"})
-hl.layer_rule({ match = { namespace = "quickshell:sidebarRight" }, animation = "fade"})
-hl.layer_rule({ match = { namespace = "quickshell:sidebarLeft" }, animation = "fade"})
+-- Automatic shell content is only 10% opaque. Upstream's 0.79 alpha cutoff skips its blur;
+-- blur all visible sidebar pixels while leaving fully transparent margins clear.
+hl.layer_rule({ match = { namespace = "quickshell:sidebarRight" }, animation = "fade", blur = true, ignore_alpha = 0.01})
+hl.layer_rule({ match = { namespace = "quickshell:sidebarLeft" }, animation = "fade", blur = true, ignore_alpha = 0.01})
