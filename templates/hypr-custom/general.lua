@@ -14,7 +14,8 @@ hl.config({
 -- 6 ms frame even at the iGPU's maximum clock, so animating windows got every second frame (Vivaldi measured ~87 Hz windowed, 165 only in
 -- fullscreen, where the compositor is bypassed). 2 passes at the default size is the heaviest blur that is fast enough. Shadows are cheap.
 -- Floating windows blur the windows directly underneath; upstream xray=true shows the wallpaper instead.
-hl.config({ decoration = { blur = { passes = 2, xray = false } } })
+-- Smooth blur: upstream noise=0.05 adds visible grain, especially over dark panels.
+hl.config({ decoration = { blur = { passes = 2, xray = false, noise = 0 } } })
 hl.config({ misc = { session_lock_xray = false } })
 
 -- Optional: slowly spinning gradient on the focused border (keeps the GPU redrawing, so it costs battery). Uncomment to try.
