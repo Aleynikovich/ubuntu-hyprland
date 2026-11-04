@@ -16,19 +16,14 @@ hl.window_rule({match = { class = "^vivaldi-stable*$" }, no_blur = true, opacity
 -- Bar: lets blur apply even when the bar is quite transparent (default 0.6 cuts blur below that)
 hl.layer_rule({ match = { namespace = "bar[0-9]*" }, ignore_alpha = 0.1})
 hl.layer_rule({ match = { namespace = "barcorner.*" }, ignore_alpha = 0.1})
-
-
 -- Moved from hyprland/rules.lua (overwritten by dots updates): sidebars fade instead of sliding
 hl.layer_rule({ match = { namespace = "sideleft.*" }, animation = "fade"})
 hl.layer_rule({ match = { namespace = "sideright.*" }, animation = "fade"})
--- Automatic shell content is only 10% opaque. Upstream's 0.79 alpha cutoff skips its blur;
--- blur all visible sidebar pixels while leaving fully transparent margins clear.
-hl.layer_rule({ match = { namespace = "quickshell:sidebarRight" }, animation = "fade", blur = true, ignore_alpha = 0.01})
-hl.layer_rule({ match = { namespace = "quickshell:sidebarLeft" }, animation = "fade", blur = true, ignore_alpha = 0.01})
--- Start menu / workspace overview uses the same translucent shell backgrounds.
-hl.layer_rule({ match = { namespace = "quickshell:overview" }, blur = true, ignore_alpha = 0.01})
--- Quickshell bars also need blur below upstream's alpha cutoff.
-hl.layer_rule({ match = { namespace = "quickshell:(bar|verticalBar)" }, blur = true, ignore_alpha = 0.01})
+hl.layer_rule({ match = { namespace = "quickshell:sidebar(Left|Right)" }, animation = "fade"})
+
+-- Automatic content is only 10% opaque: upstream's 0.79 cutoff skips its blur.
+-- Cover sidebars (including AI), launcher and bars, leaving transparent margins clear.
+hl.layer_rule({ match = { namespace = "quickshell:(sidebarLeft|sidebarRight|overview|bar|verticalBar)" }, blur = true, ignore_alpha = 0.01})
 
 -- All panels and overlays blur the actual windows underneath, including both sidebars and the AI panel.
 hl.layer_rule({ match = { namespace = ".*" }, xray = false})
