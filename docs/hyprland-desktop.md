@@ -112,6 +112,7 @@ Slack, WhatsApp, Gmail, Notion Calendar, Linear and Notion each get a fixed plac
 
 ## Known issues
 
+- **Start menu / workspace overview or bars show sharp windows underneath (2026-11-04):** `quickshell:overview`, `quickshell:bar`, and `quickshell:verticalBar` also inherit upstream's `ignore_alpha = 0.79` cutoff. `templates/hypr-custom/rules.lua` enables blur with `ignore_alpha = 0.01` for those namespaces, matching the sidebars. Xray stays disabled and blur noise stays at zero. Existing installs need these rules in `~/.config/hypr/custom/rules.lua`.
 - **Grainy blur on panels and terminals (2026-11-04):** upstream sets `decoration.blur.noise = 0.05`. `templates/hypr-custom/general.lua` overrides it with `noise = 0` for smooth blur, keeping the existing blur strength and xray disabled. Existing installs need the same change in `~/.config/hypr/custom/general.lua`.
 - **Wallpaper Engine colors (2026-11-04):** `bin/ii-wallpaper-colors --watch` follows WE Manager's selected wallpaper preview and runs end-4's shell and terminal color generators without switching the wallpaper player. Phase 50 installs it; the custom startup template starts it when WE Manager is configured. Kitty includes the generated terminal palette after its fallback colors. Existing installs need the include and startup hook added to their live configs (applied on this machine). With different wallpapers per monitor, the first assignment supplies the single global palette.
 
